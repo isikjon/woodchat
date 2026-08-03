@@ -1,0 +1,123 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import Combine
+import Photos
+import StreamChat
+import SwiftUI
+
+/// Helper class that loads assets from the photo library.
+@MainActor public class PhotoAssetLoader: NSObject, ObservableObject {
+    @Injected(\.chatClient) private var chatClient
+
+    @Published var loadedImages = [String: UIImage]()
+
+    /// Loads an image from the provided asset.
+    func loadImage(from asset: PHAsset) {
+        if loadedImages[asset.localIdentifier] != nil {
+            return
+        }
+
+        let options = PHImageRequestOptions()
+        options.version = .current
+        options.deliveryMode = .highQualityFormat
+
+        PHImageManager.default().requestImage(
+            for: asset,
+            targetSize: CGSize(width: 250, height: 250),
+            contentMode: .aspectFit,
+            options: options
+        ) { [weak self] image, _ in
+            guard let self, let image else { return }
+            loadedImages[asset.localIdentifier] = image
+        }
+    }
+
+    func compressAsset(at url: URL, type: AssetType, completion: @escaping @MainActor (URL?) -> Void) {
+        if type == .video {
+            let compressedURL = NSURL.fileURL(withPath: NSTemporaryDirectory() + UUID().uuidString + ".mp4")
+            compressVideo(inputURL: url, outputURL: compressedURL) { exportSession in
+                guard let status = exportSession?.status else {
+                    return
+                }
+                Task { @MainActor in
+                    switch status {
+                    case .completed:
+                        completion(compressedURL)
+                    default:
+                        completion(nil)
+                    }
+                }
+            }
+        }
+    }
+
+    func assetExceedsAllowedSize(url: URL?) -> Bool {
+        _ = url?.startAccessingSecurityScopedResource()
+        if let assetURL = url,
+           let file = try? AttachmentFile(url: assetURL),
+           file.size >= chatClient.maxAttachmentSize(for: assetURL) {
+            return true
+        } else {
+            return false
+        }
+    }
+
+    private func compressVideo(
+        inputURL: URL,
+        outputURL: URL,
+        handler: @escaping @Sendable (_ exportSession: AVAssetExportSession?) -> Void
+    ) {
+        let urlAsset = AVURLAsset(url: inputURL, options: nil)
+
+        guard let exportSession = AVAssetExportSession(
+            asset: urlAsset,
+            presetName: AVAssetExportPresetMediumQuality
+        ) else {
+            handler(nil)
+            return
+        }
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mp4
+        nonisolated(unsafe) let unsafeSession = exportSession
+        exportSession.exportAsynchronously {
+            handler(unsafeSession)
+        }
+    }
+
+    /// Clears the cache when there's memory warning.
+    func didReceiveMemoryWarning() {
+        loadedImages = [String: UIImage]()
+    }
+}
+
+extension PHAsset: @retroactive Identifiable {
+    public var id: String {
+        localIdentifier
+    }
+}
+
+/// Helper collection that allows iteration over the fetched assets from the photo library.
+public final class PHFetchResultCollection: RandomAccessCollection, Equatable, Sendable {
+    public typealias Element = PHAsset
+    public typealias Index = Int
+
+    public let fetchResult: PHFetchResult<PHAsset>
+
+    public var endIndex: Int { fetchResult.count }
+    public var startIndex: Int { 0 }
+
+    public init(fetchResult: PHFetchResult<PHAsset>) {
+        self.fetchResult = fetchResult
+    }
+
+    public subscript(position: Int) -> PHAsset {
+        fetchResult.object(at: position)
+    }
+
+    public static func == (lhs: PHFetchResultCollection, rhs: PHFetchResultCollection) -> Bool {
+        lhs.fetchResult == rhs.fetchResult
+    }
+}

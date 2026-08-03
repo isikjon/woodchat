@@ -1,0 +1,663 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import Combine
+import Foundation
+import StreamChat
+import SwiftUI
+import UIKit
+
+/// View model for the `ChatChannelListView`.
+@MainActor open class ChatChannelListViewModel: ObservableObject, ChatChannelListControllerDelegate, ChatMessageSearchControllerDelegate {
+    /// Context provided dependencies.
+    @Injected(\.chatClient) private var chatClient
+    @Injected(\.images) private var images
+    @Injected(\.utils) private var utils
+
+    /// Context provided utils.
+    internal lazy var channelNameFormatter = utils.channelNameFormatter
+
+    /// The maximum number of images that combine to form a single avatar
+    private let maxNumberOfImagesInCombinedAvatar = 4
+
+    private var controller: ChatChannelListController?
+
+    /// Used when screen is shown from a deeplink.
+    private var selectedChannelId: String?
+    
+    private var timer: Timer?
+
+    /// Controls loading the channels.
+    public private(set) var loadingNextChannels: Bool = false
+
+    /// True, if channel updates were skipped and are applied when selectedChannel is set to nil
+    private var skippedChannelUpdates = false
+    
+    /// True, if channel updates can be skipped for optimizing view refreshes while showing message list.
+    ///
+    /// - Important: Only meant for stacked navigation view style.
+    private var canSkipChannelUpdates: Bool {
+        guard isIphone || !utils.messageListConfig.iPadSplitViewEnabled else { return false }
+        guard selectedChannel != nil || !searchText.isEmpty else { return false }
+        return true
+    }
+    
+    /// Index of the selected channel.
+    private var selectedChannelIndex: Int?
+    
+    /// When set, scrolls to the specified channel id (if it exists).
+    @Published public var scrolledChannelId: String?
+
+    /// Published variables.
+    @Published public var channels = [ChatChannel]()
+
+    @Published public var selectedChannel: ChannelSelectionInfo? {
+        willSet {
+            hideTabBar = newValue != nil
+            if selectedChannel != nil && newValue == nil {
+                // pop happened, apply the queued changes.
+                if skippedChannelUpdates {
+                    updateChannels()
+                }
+            }
+            if newValue == nil {
+                selectedChannelIndex = nil
+            } else if utils.messageListConfig.updateChannelsFromMessageList {
+                selectedChannelIndex = channels.firstIndex(where: { channel in
+                    channel.cid.rawValue == newValue?.channel.cid.rawValue
+                })
+            }
+        }
+    }
+
+    @Published public var swipedChannelId: String?
+    @Published public var channelAlertType: ChannelAlertType? {
+        didSet {
+            if channelAlertType != nil {
+                alertShown = true
+            }
+        }
+    }
+
+    @Published public var channelPopupType: ChannelPopupType? {
+        didSet {
+            if channelPopupType != nil {
+                channelPopupShown = true
+            } else {
+                channelPopupShown = false
+            }
+        }
+    }
+
+    @Published public var alertShown = false
+    @Published public var loading = false
+    @Published public var channelPopupShown = false {
+        didSet {
+            if !channelPopupShown {
+                swipedChannelId = nil
+            }
+        }
+    }
+
+    /// The type for search results.
+    ///
+    /// Setting a new value will reload search results.
+    @Published public var searchType: ChannelListSearchType {
+        didSet {
+            guard searchType != oldValue else { return }
+            performSearch()
+        }
+    }
+    
+    /// The channel search controller which should be created only by ``performChannelSearch()``.
+    public var channelListSearchController: ChatChannelListController?
+    /// The message search controller which should be created only by ``performMessageSearch()``.
+    public var messageSearchController: ChatMessageSearchController?
+
+    /// Sort order for message search results. When set (e.g. from the channel list's sort), it is passed to the search API.
+    /// When `nil`, the controller uses its default (newest first).
+    public var messageSearchSort: [Sorting<MessageSearchSortingKey>]?
+
+    /// Serial queue used to process the search results.
+    private let queue = DispatchQueue(label: "com.getstream.stream-chat-swiftui.ChatChannelListViewModel")
+
+    @Published public var loadingSearchResults = false
+    @Published public var searchResults = [ChannelSelectionInfo]()
+    @Published var hideTabBar = false
+    @Published public var searchText = "" {
+        didSet {
+            if searchText != oldValue {
+                performSearch()
+            }
+        }
+    }
+
+    public var isSearching: Bool {
+        !searchText.isEmpty
+    }
+    
+    /// Creates a view model for the `ChatChannelListView`.
+    ///
+    /// - Parameters:
+    ///   - channelListController: A controller providing the list of channels. If nil, a controller with default `ChannelListQuery` is created.
+    ///   - selectedChannelId: The id of a channel to select. If the channel is not part of the channel list query, no channel is selected.
+    ///   Consider using ``ChatChannelScreen`` for presenting channels what might not be part of the initial page of channels.
+    ///   - searchType: The type of data the channel list should perform a search.
+    public init(
+        channelListController: ChatChannelListController? = nil,
+        selectedChannelId: String? = nil,
+        searchType: ChannelListSearchType = .channels
+    ) {
+        self.searchType = searchType
+        self.selectedChannelId = selectedChannelId
+        if let channelListController = channelListController {
+            controller = channelListController
+        } else {
+            makeDefaultChannelListController()
+        }
+        setupChannelListController()
+        observeChannelDismiss()
+        observeHideTabBar()
+    }
+
+    /// Returns the name for the specified channel.
+    ///
+    /// - Parameter channel: the channel whose display name is asked for.
+    /// - Returns: `String` with the channel name.
+    public func name(forChannel channel: ChatChannel) -> String {
+        channelNameFormatter.format(
+            channel: channel,
+            forCurrentUserId: chatClient.currentUserId
+        ) ?? ""
+    }
+
+    /// Checks if there are new channels to be loaded.
+    ///
+    /// - Parameter index: the currently displayed index.
+    public func checkForChannels(index: Int) {
+        handleChannelAppearance()
+
+        if index < (controller?.channels.count ?? 0) - 15 {
+            return
+        }
+
+        if !loadingNextChannels {
+            loadingNextChannels = true
+            controller?.loadNextChannels(limit: 30) { [weak self] _ in
+                guard let self = self else { return }
+                self.loadingNextChannels = false
+            }
+        }
+    }
+    
+    /// Opens the chat channel destination with the provided channel id.
+    ///
+    /// - Parameter channelId: the id of the channel that will be shown.
+    public func openChannel(with channelId: ChannelId) {
+        func loadUntilFound() {
+            guard let controller else { return }
+            if let channel = controller.channels.first(where: { $0.id == channelId.rawValue }) {
+                log.debug("Showing channel with id \(channelId)")
+                scrollToAndOpen(channel: channel)
+                return
+            }
+
+            // Stop if there are no more channels to load
+            if controller.hasLoadedAllPreviousChannels {
+                scrolledChannelId = nil
+                return
+            }
+
+            controller.loadNextChannels { [weak self] error in
+                if error != nil {
+                    self?.scrolledChannelId = nil
+                    return
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    loadUntilFound()
+                }
+            }
+        }
+        
+        if isSearching {
+            searchText = ""
+        }
+        
+        if selectedChannel != nil {
+            selectedChannel = nil
+        }
+
+        loadUntilFound()
+    }
+
+    public func loadAdditionalSearchResults(index: Int) {
+        switch searchType {
+        case .channels:
+            loadAdditionalChannelSearchResults(index: index)
+        case .messages:
+            loadAdditionalMessageSearchResults(index: index)
+        default:
+            break
+        }
+    }
+
+    public func onDeleteTapped(channel: ChatChannel) {
+        setChannelAlertType(.deleteChannel(channel))
+    }
+
+    public func onMoreTapped(channel: ChatChannel) {
+        channelPopupType = .moreActions(channel)
+    }
+
+    public func delete(channel: ChatChannel) {
+        let controller = chatClient.channelController(
+            for: .init(type: channel.type, id: channel.cid.id)
+        )
+
+        controller.deleteChannel { [weak self] error in
+            if error != nil {
+                // handle error
+                self?.setChannelAlertType(.error)
+            }
+        }
+    }
+
+    open func showErrorPopup(_ error: Error?) {
+        setChannelAlertType(.error)
+    }
+    
+    open func setChannelAlertType(_ channelAlertType: ChannelAlertType) {
+        self.channelAlertType = channelAlertType
+    }
+
+    // MARK: - ChatChannelListControllerDelegate
+
+    public func controller(
+        _ controller: ChatChannelListController,
+        didChangeChannels changes: [ListChange<ChatChannel>]
+    ) {
+        handleChannelListChanges(controller)
+    }
+
+    open func controller(
+        _ controller: ChatChannelListController,
+        shouldAddNewChannelToList channel: ChatChannel
+    ) -> Bool {
+        channel.membership != nil
+    }
+
+    open func controller(
+        _ controller: ChatChannelListController,
+        shouldListUpdatedChannel channel: ChatChannel
+    ) -> Bool {
+        channel.membership != nil
+    }
+
+    func checkTabBarAppearance() {
+        guard #available(iOS 15, *) else { return }
+        if hideTabBar != false {
+            hideTabBar = false
+        }
+    }
+    
+    public func preselectChannelIfNeeded() {
+        if isIPad && selectedChannel == nil && utils.messageListConfig.iPadSplitViewEnabled {
+            selectedChannel = channels.first?.channelSelectionInfo
+        }
+    }
+    
+    // MARK: - ChatMessageSearchControllerDelegate
+    
+    public func controller(_ controller: ChatMessageSearchController, didChangeMessages changes: [ListChange<ChatMessage>]) {
+        updateMessageSearchResults()
+    }
+
+    // MARK: - private
+
+    private func handleChannelListChanges(_ controller: ChatChannelListController) {
+        if canSkipChannelUpdates {
+            skippedChannelUpdates = true
+            updateChannelsIfNeeded()
+        } else {
+            channels = controller.channels
+        }
+    }
+
+    private var deeplinkCancellable: AnyCancellable?
+    
+    /// Checks for currently loaded channels for opening a channel with id.
+    private func checkForDeeplinks() {
+        guard let selectedChannelId else { return }
+        do {
+            let channelId = try ChannelId(cid: selectedChannelId)
+            if let channel = channels.first(where: { $0.cid == channelId }) {
+                selectedChannel = channel.channelSelectionInfo
+            } else {
+                // Start waiting for a channel list change because the channel is not part of the loaded list
+                deeplinkCancellable = $channels
+                    .map { Array($0) }
+                    .compactMap { channels in
+                        channels.first(where: { $0.cid == channelId })
+                    }
+                    .map(\.channelSelectionInfo)
+                    .sink { [weak self] selection in
+                        self?.deeplinkCancellable = nil
+                        self?.selectedChannel = selection
+                    }
+            }
+        } catch {
+            log.error("Failed to select a channel with id \(selectedChannelId) (\(error))")
+        }
+    }
+
+    private func makeDefaultChannelListController() {
+        guard let currentUserId = chatClient.currentUserId else {
+            observeClientIdChange()
+            return
+        }
+        controller = chatClient.channelListController(
+            query: .init(filter: .containMembers(userIds: [currentUserId]))
+        )
+    }
+
+    private func setupChannelListController() {
+        controller?.delegate = self
+
+        updateChannels()
+
+        loading = channels.isEmpty
+
+        controller?.synchronize { [weak self] error in
+            guard let self = self else { return }
+            self.loading = false
+            if error != nil {
+                // handle error
+                self.setChannelAlertType(.error)
+            } else {
+                // access channels
+                self.updateChannels()
+                self.checkForDeeplinks()
+            }
+        }
+    }
+
+    private func lastActiveMembers(for channel: ChatChannel) -> [ChatChannelMember] {
+        channel.lastActiveMembers
+            .sorted { $0.memberCreatedAt < $1.memberCreatedAt }
+            .filter { $0.id != chatClient.currentUserId }
+    }
+
+    private func performSearch() {
+        if searchText.isEmpty {
+            clearSearchResults()
+            return
+        }
+
+        switch searchType {
+        case .messages:
+            performMessageSearch()
+        case .channels:
+            performChannelSearch()
+        default:
+            break
+        }
+    }
+
+    private func loadAdditionalMessageSearchResults(index: Int) {
+        guard let messageSearchController = messageSearchController else {
+            return
+        }
+
+        if index < messageSearchController.messages.count - 10 {
+            return
+        }
+
+        if !loadingNextChannels {
+            loadingNextChannels = true
+            messageSearchController.loadNextMessages { [weak self] _ in
+                guard let self = self else { return }
+                self.loadingNextChannels = false
+            }
+        }
+    }
+
+    private func loadAdditionalChannelSearchResults(index: Int) {
+        guard let channelListSearchController = self.channelListSearchController else {
+            return
+        }
+
+        if index < channelListSearchController.channels.count - 10 {
+            return
+        }
+
+        if !loadingNextChannels {
+            loadingNextChannels = true
+            channelListSearchController.loadNextChannels { [weak self] _ in
+                guard let self = self else { return }
+                self.loadingNextChannels = false
+                self.updateChannelSearchResults()
+            }
+        }
+    }
+
+    /// Creates a new message search controller, sets its delegate, and triggers the search operation.
+    open func performMessageSearch() {
+        messageSearchController = chatClient.messageSearchController()
+        loadingSearchResults = true
+        messageSearchController?.search(text: searchText, sort: messageSearchSort) { [weak self] _ in
+            self?.loadingSearchResults = false
+            self?.messageSearchController?.delegate = self
+            self?.updateMessageSearchResults()
+        }
+    }
+
+    /// Creates a new channel search controller, sets its delegate, and triggers the search operation.
+    open func performChannelSearch() {
+        guard let userId = chatClient.currentUserId else { return }
+        var query = ChannelListQuery(
+            filter: .and([
+                .autocomplete(.name, text: searchText),
+                .containMembers(userIds: [userId])
+            ])
+        )
+        // Do not start watching any of the searched channels.
+        query.options = []
+        channelListSearchController = chatClient.channelListController(query: query)
+        loadingSearchResults = true
+        channelListSearchController?.synchronize { [weak self] _ in
+            self?.loadingSearchResults = false
+            self?.updateChannelSearchResults()
+        }
+    }
+
+    private func updateMessageSearchResults() {
+        guard let messageSearchController, searchType == .messages else {
+            return
+        }
+
+        queue.async { [weak self, chatClient] in
+            let results: [ChannelSelectionInfo] = messageSearchController.messages.compactMap { message in
+                guard let channelId = message.cid else { return nil }
+                guard let channel = chatClient.channelController(for: channelId).channel else {
+                    return nil
+                }
+                return ChannelSelectionInfo(
+                    channel: channel,
+                    message: message,
+                    searchType: .messages
+                )
+            }
+            Task { @MainActor in
+                self?.searchResults = results
+            }
+        }
+    }
+
+    private func updateChannelSearchResults() {
+        guard let channelListSearchController, searchType == .channels else {
+            return
+        }
+
+        searchResults = channelListSearchController.channels
+            .compactMap { channel in
+                ChannelSelectionInfo(
+                    channel: channel,
+                    message: channel.previewMessage,
+                    searchType: .channels
+                )
+            }
+    }
+
+    private func clearSearchResults() {
+        messageSearchController?.delegate = nil
+        messageSearchController = nil
+        channelListSearchController?.delegate = nil
+        channelListSearchController = nil
+        searchResults = []
+        updateChannels()
+    }
+
+    private func observeClientIdChange() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true, block: { [weak self] _ in
+            guard let self else { return }
+            StreamConcurrency.onMain {
+                if self.chatClient.currentUserId != nil {
+                    self.stopTimer()
+                    self.makeDefaultChannelListController()
+                    self.setupChannelListController()
+                }
+            }
+        })
+    }
+
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func updateChannels() {
+        channels = controller?.channels ?? [ChatChannel]()
+    }
+
+    private func handleChannelAppearance() {
+        if skippedChannelUpdates && selectedChannel == nil {
+            updateChannels()
+        } else if skippedChannelUpdates {
+            updateSelectedChannelData()
+        } else if !skippedChannelUpdates && selectedChannel != nil {
+            if selectedChannel?.injectedChannelInfo == nil {
+                selectedChannel?.injectedChannelInfo = InjectedChannelInfo(unreadCount: 0)
+            }
+        }
+    }
+
+    private func updateChannelsIfNeeded() {
+        if utils.messageListConfig.updateChannelsFromMessageList
+            && ((selectedChannelIndex ?? 0) < 8)
+            && !utils.messageCachingUtils.messageThreadShown {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.handleChannelAppearance()
+            }
+        }
+    }
+
+    private func updateSelectedChannelData() {
+        let selected = selectedChannel?.channel
+        var index: Int?
+        var temp = Array(controller?.channels ?? [])
+        for i in 0..<temp.count {
+            let current = temp[i]
+            if current.cid == selected?.cid {
+                index = i
+                selectedChannel?.injectedChannelInfo = InjectedChannelInfo(
+                    subtitle: current.subtitleText,
+                    unreadCount: 0,
+                    timestamp: current.timestampText,
+                    lastMessageAt: current.lastMessageAt,
+                    latestMessages: current.latestMessages
+                )
+                break
+            }
+        }
+        if let index, let selected {
+            temp[index] = selected
+        }
+        channels = temp
+    }
+    
+    private func scrollToAndOpen(channel: ChatChannel) {
+        scrolledChannelId = channel.id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.selectedChannel = .init(channel: channel, message: nil)
+            self?.scrolledChannelId = nil
+        }
+    }
+
+    private func observeChannelDismiss() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dismissPresentedChannel),
+            name: NSNotification.Name(dismissChannel),
+            object: nil
+        )
+    }
+
+    private func observeHideTabBar() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleHideTabBar),
+            name: NSNotification.Name(hideTabBarNotification),
+            object: nil
+        )
+    }
+
+    @objc private func dismissPresentedChannel() {
+        selectedChannel = nil
+    }
+
+    @objc private func handleHideTabBar() {
+        hideTabBar = true
+    }
+}
+
+internal let dismissChannel = "io.getstream.dismissChannel"
+
+private let hideTabBarNotification = "io.getstream.hideTabBar"
+
+func notifyChannelDismiss() {
+    NotificationCenter.default.post(name: NSNotification.Name(dismissChannel), object: nil)
+}
+
+public func notifyHideTabBar() {
+    NotificationCenter.default.post(name: NSNotification.Name(hideTabBarNotification), object: nil)
+}
+
+/// Enum for the type of alert presented in the channel list view.
+public enum ChannelAlertType: Equatable {
+    case deleteChannel(ChatChannel)
+    case error
+}
+
+/// Enum describing the type of the custom popup for channel actions.
+public enum ChannelPopupType: Equatable {
+    /// Shows the 'more actions' popup.
+    case moreActions(ChatChannel)
+}
+
+/// The type of data the channel list should perform a search.
+public final class ChannelListSearchType: Equatable, Sendable {
+    let type: String
+
+    private init(type: String) {
+        self.type = type
+    }
+
+    public static let channels = ChannelListSearchType(type: "channels")
+    public static let messages = ChannelListSearchType(type: "messages")
+    
+    public static func == (lhs: ChannelListSearchType, rhs: ChannelListSearchType) -> Bool {
+        lhs.type == rhs.type
+    }
+}

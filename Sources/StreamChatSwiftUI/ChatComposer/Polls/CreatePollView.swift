@@ -1,0 +1,482 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import StreamChat
+import SwiftUI
+
+public struct CreatePollView<Factory: ViewFactory>: View {
+    @Injected(\.colors) private var colors
+    @Injected(\.images) private var images
+    @Injected(\.fonts) private var fonts
+    @Injected(\.tokens) private var tokens
+
+    @StateObject private var viewModel: CreatePollViewModel
+    @Environment(\.presentationMode) private var presentationMode
+
+    let factory: Factory
+
+    public init(
+        factory: Factory = DefaultViewFactory.shared,
+        chatController: ChatChannelController,
+        messageController: ChatMessageController?
+    ) {
+        self.factory = factory
+        _viewModel = StateObject(
+            wrappedValue: CreatePollViewModel(
+                chatController: chatController,
+                messageController: messageController
+            )
+        )
+    }
+
+    init(factory: Factory = DefaultViewFactory.shared, viewModel: CreatePollViewModel) {
+        self.factory = factory
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    public var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                List {
+                    questionSection
+                    optionsSection
+                    settingsSpacer
+                    settingsSection
+                    Spacer()
+                        .modifier(CreatePollRowModifier(topSpacing: 0, bottomSpacing: 0))
+                }
+                .environment(\.defaultMinListRowHeight, 1)
+                .listStyle(.plain)
+            }
+            .background(Color(colors.backgroundElevationElevation1).ignoresSafeArea())
+            .modifier(
+                CreatePollToolbarModifier(
+                    factory: factory,
+                    canCreatePoll: viewModel.canCreatePoll,
+                    onClose: {
+                        if viewModel.canShowDiscardConfirmation {
+                            viewModel.discardConfirmationShown = true
+                        } else {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    },
+                    onConfirm: {
+                        viewModel.createPoll {
+                            presentationMode.wrappedValue.dismiss()
+                        }
+                    }
+                )
+            )
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .actionSheet(isPresented: $viewModel.discardConfirmationShown) {
+            ActionSheet(
+                title: Text(L10n.Composer.Polls.actionSheetDiscardTitle),
+                buttons: [
+                    .destructive(Text(L10n.Alert.Actions.discardChanges)) {
+                        presentationMode.wrappedValue.dismiss()
+                    },
+                    .default(Text(L10n.Alert.Actions.keepEditing))
+                ]
+            )
+        }
+        .alert(isPresented: $viewModel.errorShown) {
+            Alert.defaultErrorAlert
+        }
+    }
+
+    // MARK: - Sections
+
+    private var questionSection: some View {
+        VStack(alignment: .leading, spacing: tokens.spacingXs) {
+            Text(L10n.Composer.Polls.question)
+                .font(fonts.body)
+                .foregroundColor(Color(colors.textPrimary))
+            TextField(L10n.Composer.Polls.askQuestion, text: $viewModel.question)
+                .font(fonts.body)
+                .foregroundColor(Color(colors.inputTextDefault))
+                .padding(.horizontal, tokens.spacingMd)
+                .padding(.vertical, tokens.spacingSm)
+                .frame(minHeight: 48)
+                .background(
+                    RoundedRectangle(cornerRadius: tokens.radiusLg)
+                        .strokeBorder(Color(colors.borderCoreDefault), lineWidth: 1)
+                )
+        }
+        .modifier(CreatePollRowModifier(
+            topSpacing: tokens.spacingXxs,
+            bottomSpacing: tokens.spacingSm
+        ))
+    }
+
+    @ViewBuilder
+    private var optionsSection: some View {
+        Text(L10n.Composer.Polls.options)
+            .font(fonts.body)
+            .foregroundColor(Color(colors.textPrimary))
+            .modifier(CreatePollRowModifier(
+                topSpacing: tokens.spacingSm,
+                bottomSpacing: tokens.spacingXxs
+            ))
+
+        ForEach(viewModel.options) { option in
+            let isLast = viewModel.isLastOption(option)
+            CreatePollOptionRow(
+                text: option.text,
+                showsReorderIcon: !option.text.isEmpty,
+                showsDeleteButton: !isLast,
+                showsError: viewModel.showsOptionError(for: option),
+                onTextChanged: { newText in
+                    let id = option.id
+                    Task { @MainActor in
+                        viewModel.updateOption(id: id, value: newText)
+                    }
+                },
+                onDelete: {
+                    let id = option.id
+                    Task { @MainActor in
+                        viewModel.removeOption(id: id)
+                    }
+                }
+            )
+        }
+        .onMove { indices, newOffset in
+            Task { @MainActor in
+                viewModel.moveOptions(from: indices, to: newOffset)
+            }
+        }
+        .modifier(CreatePollRowModifier(
+            topSpacing: tokens.spacingXxs,
+            bottomSpacing: tokens.spacingXxs
+        ))
+    }
+
+    private var settingsSpacer: some View {
+        Color.clear
+            .frame(height: tokens.spacingLg)
+            .modifier(CreatePollRowModifier(topSpacing: 0, bottomSpacing: 0))
+    }
+
+    @ViewBuilder
+    private var settingsSection: some View {
+        if viewModel.multipleAnswersShown {
+            multipleVotesCard
+        }
+
+        if viewModel.anonymousPollShown {
+            CreatePollSettingCard(
+                title: L10n.Composer.Polls.anonymousPoll,
+                subtitle: L10n.Composer.Polls.hideWhoVoted
+            ) {
+                Toggle("", isOn: $viewModel.anonymousPoll).labelsHidden()
+            }
+        }
+
+        if viewModel.suggestAnOptionShown {
+            CreatePollSettingCard(
+                title: L10n.Composer.Polls.suggestOption,
+                subtitle: L10n.Composer.Polls.letOthersAddOptions
+            ) {
+                Toggle("", isOn: $viewModel.suggestAnOption).labelsHidden()
+            }
+        }
+
+        if viewModel.addCommentsShown {
+            CreatePollSettingCard(
+                title: L10n.Composer.Polls.addComment,
+                subtitle: L10n.Composer.Polls.allowOthersToAddComments
+            ) {
+                Toggle("", isOn: $viewModel.allowComments).labelsHidden()
+            }
+        }
+    }
+
+    // MARK: - Multiple Votes Card
+
+    private var multipleVotesCard: some View {
+        VStack(alignment: .leading, spacing: tokens.spacingMd) {
+            HStack(spacing: tokens.spacingMd) {
+                VStack(alignment: .leading, spacing: tokens.spacingXxs) {
+                    Text(L10n.Composer.Polls.multipleAnswers)
+                        .font(fonts.body)
+                        .foregroundColor(Color(colors.textPrimary))
+                    Text(L10n.Composer.Polls.selectMoreThanOneOption)
+                        .font(fonts.subheadline)
+                        .foregroundColor(Color(colors.textTertiary))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Toggle("", isOn: $viewModel.multipleAnswers)
+                    .labelsHidden()
+            }
+
+            if viewModel.multipleAnswers, viewModel.maxVotesShown {
+                VStack(alignment: .leading, spacing: tokens.spacingXs) {
+                    HStack(spacing: tokens.spacingSm) {
+                        VStack(alignment: .leading, spacing: tokens.spacingXxs) {
+                            Text(L10n.Composer.Polls.maximumVotesPerPerson)
+                                .font(fonts.body)
+                                .foregroundColor(Color(colors.textPrimary))
+                            Text(L10n.Composer.Polls.typeNumberMinMaxRange)
+                                .font(fonts.subheadline)
+                                .foregroundColor(Color(colors.textTertiary))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Toggle("", isOn: $viewModel.maxVotesEnabled)
+                            .labelsHidden()
+                    }
+                    .padding(.vertical, tokens.spacingXxxs)
+
+                    if viewModel.maxVotesEnabled {
+                        CreatePollMaxVotesStepper(
+                            text: viewModel.maxVotesText,
+                            canDecrement: viewModel.canDecrementMaxVotes,
+                            canIncrement: viewModel.canIncrementMaxVotes,
+                            onDecrement: viewModel.decrementMaxVotes,
+                            onIncrement: viewModel.incrementMaxVotes
+                        )
+                    }
+                }
+            }
+        }
+        .padding(tokens.spacingMd)
+        .background(Color(colors.backgroundCoreSurfaceCard))
+        .clipShape(RoundedRectangle(cornerRadius: tokens.radiusLg))
+        .modifier(CreatePollRowModifier(
+            topSpacing: tokens.spacingXs,
+            bottomSpacing: tokens.spacingXs
+        ))
+    }
+}
+
+// MARK: - Toolbar
+
+private struct CreatePollToolbarModifier<Factory: ViewFactory>: ViewModifier {
+    @Injected(\.colors) private var colors
+    @Injected(\.fonts) private var fonts
+    @Injected(\.tokens) private var tokens
+
+    let factory: Factory
+    let canCreatePoll: Bool
+    let onClose: () -> Void
+    let onConfirm: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .toolbarThemed {
+                toolbarContent()
+            }
+    }
+
+    @ToolbarContentBuilder private func toolbarContent() -> some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .renderingMode(.template)
+                    .font(.system(size: 12))
+                    .foregroundColor(Color(colors.buttonSecondaryText))
+            }
+        }
+
+        ToolbarItem(placement: .principal) {
+            Text(L10n.Composer.Polls.createPoll)
+                .font(fonts.bodyBold)
+                .foregroundColor(Color(colors.navigationBarTitle))
+        }
+
+        ToolbarItem(placement: .topBarTrailing) {
+            Button(action: onConfirm) {
+                Image(systemName: "checkmark")
+                    .renderingMode(.template)
+                    .font(.system(size: 16))
+                    .foregroundColor(Color(colors.buttonPrimaryTextOnAccent))
+            }
+            .modifier(factory.styles.makeToolbarConfirmActionModifier(options: .init()))
+            .disabled(!canCreatePoll)
+        }
+    }
+}
+
+// MARK: - Option Row
+
+private struct CreatePollOptionRow: View {
+    @Injected(\.colors) private var colors
+    @Injected(\.images) private var images
+    @Injected(\.fonts) private var fonts
+    @Injected(\.tokens) private var tokens
+
+    let text: String
+    let showsReorderIcon: Bool
+    let showsDeleteButton: Bool
+    let showsError: Bool
+    let onTextChanged: @Sendable (String) -> Void
+    let onDelete: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: tokens.spacingXs) {
+                if showsReorderIcon {
+                    Image(uiImage: images.pollOptionDragIcon)
+                        .renderingMode(.template)
+                        .font(.system(size: tokens.iconSizeSm))
+                        .foregroundColor(Color(colors.textTertiary))
+                }
+                TextField(
+                    L10n.Composer.Polls.addOption,
+                    text: Binding(get: { text }, set: onTextChanged)
+                )
+                .font(fonts.body)
+                .foregroundColor(Color(colors.inputTextDefault))
+                if showsDeleteButton {
+                    Button(action: onDelete) {
+                        Image(systemName: "minus.circle")
+                            .font(.system(size: tokens.iconSizeSm))
+                            .foregroundColor(Color(colors.textTertiary))
+                    }
+                    .frame(width: tokens.iconSizeSm, height: tokens.iconSizeSm)
+                }
+            }
+            .padding(.horizontal, tokens.spacingMd)
+            .padding(.vertical, tokens.spacingSm)
+            .frame(minHeight: 48)
+
+            duplicateErrorLabel
+        }
+        .background(
+            RoundedRectangle(cornerRadius: tokens.radiusLg)
+                .strokeBorder(Color(colors.borderCoreDefault), lineWidth: 1)
+        )
+        .moveDisabled(!showsDeleteButton)
+    }
+
+    private var duplicateErrorLabel: some View {
+        HStack(spacing: tokens.spacingXs) {
+            Image(systemName: "exclamationmark.circle")
+                .font(.system(size: tokens.iconSizeSm))
+            Text(L10n.Composer.Polls.duplicateOption)
+                .font(fonts.subheadline)
+        }
+        .foregroundColor(Color(colors.alert))
+        .padding(.horizontal, tokens.spacingMd)
+        .padding(.bottom, showsError ? tokens.spacingSm : 0)
+        .frame(height: showsError ? nil : 0, alignment: .top)
+        .clipped()
+        .opacity(showsError ? 1 : 0)
+    }
+}
+
+// MARK: - Setting Card
+
+private struct CreatePollSettingCard<Content: View>: View {
+    @Injected(\.colors) private var colors
+    @Injected(\.fonts) private var fonts
+    @Injected(\.tokens) private var tokens
+
+    let title: String
+    let subtitle: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack(alignment: .top, spacing: tokens.spacingMd) {
+            VStack(alignment: .leading, spacing: tokens.spacingXxs) {
+                Text(title)
+                    .font(fonts.body)
+                    .foregroundColor(Color(colors.textPrimary))
+                Text(subtitle)
+                    .font(fonts.subheadline)
+                    .foregroundColor(Color(colors.textTertiary))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            content
+        }
+        .padding(tokens.spacingMd)
+        .background(Color(colors.backgroundCoreSurfaceCard))
+        .clipShape(RoundedRectangle(cornerRadius: tokens.radiusLg))
+        .modifier(CreatePollRowModifier(
+            topSpacing: tokens.spacingXs,
+            bottomSpacing: tokens.spacingXs
+        ))
+    }
+}
+
+// MARK: - Max Votes Stepper
+
+private struct CreatePollMaxVotesStepper: View {
+    @Injected(\.colors) private var colors
+    @Injected(\.fonts) private var fonts
+    @Injected(\.tokens) private var tokens
+
+    let text: String
+    let canDecrement: Bool
+    let canIncrement: Bool
+    let onDecrement: () -> Void
+    let onIncrement: () -> Void
+
+    var body: some View {
+        HStack(spacing: tokens.spacingXxs) {
+            stepperButton(systemName: "minus", enabled: canDecrement, action: onDecrement)
+
+            Text(text)
+                .font(fonts.body)
+                .foregroundColor(Color(colors.textPrimary))
+                .frame(width: tokens.buttonVisualHeightMd, height: tokens.buttonVisualHeightLg)
+
+            stepperButton(systemName: "plus", enabled: canIncrement, action: onIncrement)
+        }
+    }
+
+    private func stepperButton(
+        systemName: String,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            guard enabled else { return }
+            action()
+        } label: {
+            Image(systemName: systemName)
+                .font(.system(size: tokens.iconSizeSm))
+                .foregroundColor(Color(enabled ? colors.textPrimary : colors.textTertiary))
+                .frame(width: tokens.buttonVisualHeightMd, height: tokens.buttonVisualHeightMd)
+                .background(
+                    Circle()
+                        .strokeBorder(
+                            Color(enabled ? colors.buttonSecondaryBorder : colors.borderUtilityDisabled),
+                            lineWidth: 1
+                        )
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.borderless)
+        .frame(width: tokens.buttonVisualHeightLg, height: tokens.buttonVisualHeightLg)
+    }
+}
+
+// MARK: - Row Modifier
+
+private struct CreatePollRowModifier: ViewModifier {
+    @Injected(\.colors) private var colors
+    @Injected(\.tokens) private var tokens
+
+    var topSpacing: CGFloat
+    var bottomSpacing: CGFloat
+
+    func body(content: Content) -> some View {
+        if #available(iOS 15.0, *) {
+            content
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color(colors.backgroundElevationElevation1))
+                .listRowInsets(EdgeInsets(
+                    top: topSpacing,
+                    leading: tokens.spacingMd,
+                    bottom: bottomSpacing,
+                    trailing: tokens.spacingMd
+                ))
+        } else {
+            content
+                .padding(.horizontal, tokens.spacingMd)
+                .padding(.top, topSpacing)
+                .padding(.bottom, bottomSpacing)
+        }
+    }
+}

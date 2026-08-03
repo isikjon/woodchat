@@ -1,0 +1,267 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import StreamChat
+import SwiftUI
+
+/// View for the chat channel list.
+public struct ChatChannelListView<Factory: ViewFactory>: View {
+    @Injected(\.fonts) private var fonts
+    @Injected(\.colors) private var colors
+    @Injected(\.utils) private var utils
+
+    @StateObject private var viewModel: ChatChannelListViewModel
+    @State private var tabBar: UITabBar?
+
+    private let viewFactory: Factory
+    private let title: String
+    private let customOnItemTap: (@MainActor (ChatChannel) -> Void)?
+    private var embedInNavigationView: Bool
+    private var handleTabBarVisibility: Bool
+
+    /// Creates a channel list view.
+    ///
+    /// - Parameters:
+    ///   - viewFactory: The view factory used for creating views used by the channel list.
+    ///   - viewModel: The view model instance providing the data. Default view model is created if nil.
+    ///   - channelListController: The channel list controller managing the list of channels used as a data souce for the view model. Default controller is created if nil.
+    ///   - title: A title used as the navigation bar title.
+    ///   - onItemTap: A closure for handling a tap on the channel item. Default closure updates the ``ChatChannelListViewModel/selectedChannel`` property in the view model.
+    ///   - selectedChannelId: The id of a channel to be opened after the initial channel list load.
+    ///   - handleTabBarVisibility: True, if TabBar visibility should be automatically updated.
+    ///   - embedInNavigationView: True, if the channel list view should be embedded in a navigation stack.
+    ///   - searchType: The type of data the channel list should perform a search. By default it searches messages.
+    ///
+    /// Changing the instance of the passed in `viewModel` or `channelListController` does not have an effect without reloading the channel list view by assigning a custom identity. The custom identity should be refreshed when either of the passed in instances have been recreated.
+    /// ```swift
+    /// ChatChannelListView(
+    ///   viewModel: viewModel
+    /// )
+    /// .id(myCustomViewIdentity)
+    /// ```
+    public init(
+        viewFactory: Factory = DefaultViewFactory.shared,
+        viewModel: ChatChannelListViewModel? = nil,
+        channelListController: ChatChannelListController? = nil,
+        title: String = "Stream Chat",
+        onItemTap: (@MainActor (ChatChannel) -> Void)? = nil,
+        selectedChannelId: String? = nil,
+        handleTabBarVisibility: Bool = true,
+        embedInNavigationView: Bool = true,
+        searchType: ChannelListSearchType = .messages
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: viewModel ?? ViewModelsFactory.makeChannelListViewModel(
+                channelListController: channelListController,
+                selectedChannelId: selectedChannelId,
+                searchType: searchType
+            )
+        )
+        self.viewFactory = viewFactory
+        self.title = title
+        self.handleTabBarVisibility = handleTabBarVisibility
+        self.embedInNavigationView = embedInNavigationView
+        customOnItemTap = onItemTap
+    }
+    
+    var onItemTap: @MainActor (ChatChannel) -> Void {
+        if let customOnItemTap {
+            return customOnItemTap
+        }
+        return { [weak viewModel] channel in
+            viewModel?.selectedChannel = channel.channelSelectionInfo
+        }
+    }
+
+    public var body: some View {
+        NavigationContainerView(embedInNavigationView: embedInNavigationView) {
+            content()
+        }
+        .sheet(isPresented: $viewModel.channelPopupShown, content: {
+            channelPopup()
+                .modifier(PresentationDetentsModifier(sheetSizes: [.custom(280), .medium]))
+        })
+        .if(isIphone || !utils.messageListConfig.iPadSplitViewEnabled, transform: { view in
+            view.navigationViewStyle(.stack)
+        })
+        .background(
+            isIphone && handleTabBarVisibility ?
+                Color.clear.background(
+                    TabBarAccessor { tabBar in
+                        self.tabBar = tabBar
+                    }
+                )
+                .allowsHitTesting(false)
+                : nil
+        )
+        .onReceive(viewModel.$hideTabBar) { newValue in
+            if isIphone && handleTabBarVisibility {
+                setupTabBarAppeareance()
+                tabBar?.isHidden = newValue
+            }
+        }
+        .accessibilityIdentifier("ChatChannelListView")
+    }
+
+    @ViewBuilder
+    private func content() -> some View {
+        Group {
+            if viewModel.loading {
+                viewFactory.makeLoadingView(options: LoadingViewOptions())
+            } else if viewModel.channels.isEmpty {
+                viewFactory.makeNoChannelsView(options: NoChannelsViewOptions())
+            } else {
+                ChatChannelListContentView(
+                    viewFactory: viewFactory,
+                    viewModel: viewModel,
+                    onItemTap: onItemTap
+                )
+            }
+        }
+        .onDisappear(perform: {
+            if viewModel.selectedChannel != nil {
+                viewModel.hideTabBar = true
+            }
+            if viewModel.swipedChannelId != nil {
+                viewModel.swipedChannelId = nil
+            }
+        })
+        .background(
+            viewFactory.makeChannelListBackground(options: .init())
+        )
+        .alert(isPresented: $viewModel.alertShown) {
+            switch viewModel.channelAlertType {
+            case let .deleteChannel(channel):
+                Alert(
+                    title: Text(L10n.Alert.Actions.deleteChannelTitle),
+                    message: Text(L10n.Alert.Actions.deleteChannelMessage),
+                    primaryButton: .destructive(Text(L10n.Alert.Actions.delete)) {
+                        viewModel.delete(channel: channel)
+                    },
+                    secondaryButton: .cancel()
+                )
+            default:
+                Alert.defaultErrorAlert
+            }
+        }
+        .modifier(viewFactory.makeChannelListHeaderViewModifier(options: ChannelListHeaderViewModifierOptions(title: title)))
+        .navigationBarTitleDisplayMode(utils.channelListConfig.navigationBarDisplayMode)
+    }
+
+    private func setupTabBarAppeareance() {
+        if #available(iOS 15.0, *) {
+            let tabBarAppearance: UITabBarAppearance = UITabBarAppearance()
+            tabBarAppearance.configureWithDefaultBackground()
+            UITabBar.appearance().standardAppearance = tabBarAppearance
+            UITabBar.appearance().scrollEdgeAppearance = tabBarAppearance
+        }
+    }
+
+    @ViewBuilder
+    private func channelPopup() -> some View {
+        switch viewModel.channelPopupType {
+        case let .moreActions(channel):
+            viewFactory.makeMoreChannelActionsView(
+                options: MoreChannelActionsViewOptions(
+                    channel: channel,
+                    swipedChannelId: $viewModel.swipedChannelId,
+                    onDismiss: {
+                        withAnimation {
+                            viewModel.channelPopupType = nil
+                            viewModel.swipedChannelId = nil
+                        }
+                    },
+                    onError: { error in
+                        viewModel.showErrorPopup(error)
+                    }
+                )
+            )
+        default:
+            EmptyView()
+        }
+    }
+}
+
+extension ChatChannelListView where Factory == DefaultViewFactory {
+    public init() {
+        self.init(viewFactory: DefaultViewFactory.shared)
+    }
+}
+
+public struct ChatChannelListContentView<Factory: ViewFactory>: View {
+    @Injected(\.colors) private var colors
+    
+    @Environment(\.horizontalSizeClass) var horizontalSizeClass
+
+    private var viewFactory: Factory
+    @ObservedObject private var viewModel: ChatChannelListViewModel
+    private var onItemTap: @MainActor (ChatChannel) -> Void
+
+    public init(
+        viewFactory: Factory,
+        viewModel: ChatChannelListViewModel,
+        onItemTap: (@MainActor (ChatChannel) -> Void)? = nil
+    ) {
+        self.viewFactory = viewFactory
+        self.viewModel = viewModel
+        if let onItemTap {
+            self.onItemTap = onItemTap
+        } else {
+            self.onItemTap = { channel in
+                viewModel.selectedChannel = channel.channelSelectionInfo
+            }
+        }
+    }
+
+    public var body: some View {
+        VStack(spacing: 0) {
+            viewFactory.makeChannelListTopView(
+                options: ChannelListTopViewOptions()
+            )
+            
+            if viewModel.isSearching {
+                viewFactory.makeSearchResultsView(
+                    options: SearchResultsViewOptions(
+                        selectedChannel: $viewModel.selectedChannel,
+                        searchResults: viewModel.searchResults,
+                        loadingSearchResults: viewModel.loadingSearchResults,
+                        channelNaming: viewModel.name(forChannel:),
+                        onSearchResultTap: { searchResult in
+                            viewModel.selectedChannel = searchResult
+                        },
+                        onItemAppear: viewModel.loadAdditionalSearchResults(index:)
+                    )
+                )
+            } else {
+                ChannelList(
+                    factory: viewFactory,
+                    channels: viewModel.channels,
+                    selectedChannel: $viewModel.selectedChannel,
+                    swipedChannelId: $viewModel.swipedChannelId,
+                    scrolledChannelId: $viewModel.scrolledChannelId,
+                    scrollable: true,
+                    onItemTap: onItemTap,
+                    onItemAppear: { index in
+                        viewModel.checkTabBarAppearance()
+                        viewModel.checkForChannels(index: index)
+                    },
+                    channelDestination: viewFactory.makeChannelDestination(options: ChannelDestinationOptions()),
+                    trailingSwipeRightButtonTapped: viewModel.onDeleteTapped(channel:),
+                    trailingSwipeLeftButtonTapped: viewModel.onMoreTapped(channel:),
+                    leadingSwipeButtonTapped: { _ in }
+                )
+                .onAppear {
+                    viewModel.preselectChannelIfNeeded()
+                }
+            }
+
+            viewFactory.makeChannelListStickyFooterView(options: ChannelListStickyFooterViewOptions())
+        }
+        .modifier(viewFactory.styles.makeSearchableModifier(
+            options: SearchableModifierOptions(searchText: $viewModel.searchText)
+        ))
+        .background(Color(colors.backgroundElevationElevation0))
+        .modifier(viewFactory.styles.makeChannelListContentModifier(options: ChannelListContentModifierOptions()))
+    }
+}

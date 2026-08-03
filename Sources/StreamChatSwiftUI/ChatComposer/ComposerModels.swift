@@ -1,0 +1,163 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import AVFoundation
+import StreamChat
+import SwiftUI
+
+/// Enum describing the attachment picker's state.
+public enum AttachmentPickerState: Sendable {
+    case files
+    case photos
+    case camera
+    case polls
+    case commands
+    case custom
+}
+
+/// An object representing an asset added to the composer.
+public final class AddedAsset: Identifiable, Equatable, Sendable {
+    public static func == (lhs: AddedAsset, rhs: AddedAsset) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    public let image: UIImage
+    public let id: String
+    public let url: URL
+    public let type: AssetType
+    public let extraData: [String: RawJSON]
+
+    /// Original width in pixels (for images and videos). Available at selection time without extra computation.
+    public let originalWidth: Double?
+    /// Original height in pixels (for images and videos). Available at selection time without extra computation.
+    public let originalHeight: Double?
+    /// Duration in seconds (for videos only). Available at selection time without extra computation.
+    public let duration: TimeInterval?
+
+    /// The payload of the attachment, in case the attachment has been uploaded to server already.
+    /// This is mostly used when editing an existing message that contains attachments.
+    public let payload: AttachmentPayload?
+
+    public init(
+        image: UIImage,
+        id: String,
+        url: URL,
+        type: AssetType,
+        extraData: [String: RawJSON] = [:],
+        originalWidth: Double? = nil,
+        originalHeight: Double? = nil,
+        duration: TimeInterval? = nil,
+        payload: AttachmentPayload? = nil
+    ) {
+        self.image = image
+        self.id = id
+        self.url = url
+        self.type = type
+        self.extraData = extraData
+        self.originalWidth = originalWidth
+        self.originalHeight = originalHeight
+        self.duration = duration
+        self.payload = payload
+    }
+}
+
+extension AddedAsset {
+    func toAttachmentPayload() throws -> AnyAttachmentPayload {
+        if let payload {
+            return AnyAttachmentPayload(payload: payload)
+        }
+        var localMetadata: AnyAttachmentLocalMetadata?
+        if originalWidth != nil || originalHeight != nil || duration != nil {
+            var meta = AnyAttachmentLocalMetadata()
+            if let w = originalWidth, let h = originalHeight {
+                meta.originalResolution = (width: w, height: h)
+            }
+            meta.duration = duration
+            localMetadata = meta
+        }
+        return try AnyAttachmentPayload(
+            localFileURL: url,
+            attachmentType: type == .video ? .video : .image,
+            localMetadata: localMetadata,
+            extraData: extraData.isEmpty ? nil : extraData
+        )
+    }
+}
+
+extension AnyChatMessageAttachment {
+    func imageThumbnail(for videoAttachmentPayload: VideoAttachmentPayload) -> UIImage? {
+        if let thumbnailURL = videoAttachmentPayload.thumbnailURL, let data = try? Data(contentsOf: thumbnailURL) {
+            return UIImage(data: data)
+        }
+        let asset = AVURLAsset(url: videoAttachmentPayload.videoURL, options: nil)
+        let imageGenerator = AVAssetImageGenerator(asset: asset)
+        imageGenerator.appliesPreferredTrackTransform = true
+        guard let cgImage = try? imageGenerator.copyCGImage(
+            at: CMTimeMake(value: 0, timescale: 1),
+            actualTime: nil
+        ) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
+}
+
+/// Type of asset added to the composer.
+public enum AssetType: Sendable {
+    case image
+    case video
+}
+
+public final class CustomAttachment: Identifiable, Equatable, Sendable {
+    public static func == (lhs: CustomAttachment, rhs: CustomAttachment) -> Bool {
+        lhs.id == rhs.id
+    }
+    
+    public let id: String
+    public let content: AnyAttachmentPayload
+    
+    public init(id: String, content: AnyAttachmentPayload) {
+        self.id = id
+        self.content = content
+    }
+}
+
+/// Represents an added voice recording.
+public final class AddedVoiceRecording: Identifiable, Equatable, Sendable {
+    public var id: String {
+        url.absoluteString
+    }
+    
+    /// The URL of the recording.
+    public let url: URL
+    /// The duration of the recording.
+    public let duration: TimeInterval
+    /// The waveform of the recording.
+    public let waveform: [Float]
+    
+    public init(url: URL, duration: TimeInterval, waveform: [Float]) {
+        self.url = url
+        self.duration = duration
+        self.waveform = waveform
+    }
+
+    public static func == (lhs: AddedVoiceRecording, rhs: AddedVoiceRecording) -> Bool {
+        lhs.url == rhs.url
+            && lhs.duration == rhs.duration
+            && lhs.waveform == rhs.waveform
+    }
+}
+
+extension AnyChatMessageAttachment {
+    func toAddedVoiceRecording() -> AddedVoiceRecording? {
+        guard let voiceAttachment = attachment(payloadType: VoiceRecordingAttachmentPayload.self) else { return nil }
+        guard let duration = voiceAttachment.duration else { return nil }
+        guard let waveform = voiceAttachment.waveformData else { return nil }
+        return AddedVoiceRecording(
+            url: voiceAttachment.voiceRecordingURL,
+            duration: duration,
+            waveform: waveform
+        )
+    }
+}

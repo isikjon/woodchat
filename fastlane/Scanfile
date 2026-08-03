@@ -1,0 +1,2 @@
+configuration('Debug')
+result_bundle(true)

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WoodChat — чеклист функций</title>
+<style>
+  :root {
+    --bg: #FAF6F1; --card: #FFFFFF; --text: #2B2018; --muted: #8A7A6B;
+    --line: #EFE7DD; --wood: #7A4A22; --wood-light: #C08A52;
+    --ok-bg: #E7F3E7; --ok-fg: #2E7D32;
+    --part-bg: #FFF4DC; --part-fg: #9A6B00;
+    --todo-bg: #EEEBE7; --todo-fg: #6E635A;
+    --hold-bg: #ECEAF6; --hold-fg: #5B5390;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17120E; --card: #201914; --text: #F0E7DC; --muted: #A79482;
+      --line: #33291F; --wood: #C08A52; --wood-light: #D9A96E;
+      --ok-bg: #1E2F1E; --ok-fg: #8BC98B;
+      --part-bg: #332A12; --part-fg: #E0B75A;
+      --todo-bg: #2A2620; --todo-fg: #A89C8E;
+      --hold-bg: #262338; --hold-fg: #A79FD8;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", Inter, sans-serif;
+    line-height: 1.45; padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 20px; margin-bottom: 8px; flex-wrap: wrap; }
+  header svg { flex-shrink: 0; }
+  .brand { font-size: 34px; font-weight: 700; letter-spacing: -0.5px; }
+  .brand .w { color: var(--wood); } .brand .c { color: var(--wood-light); }
+  .subtitle { color: var(--muted); margin: 4px 0 28px; font-size: 15px; }
+
+  .progress { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+          padding: 12px 18px; min-width: 120px; }
+  .stat b { font-size: 24px; display: block; }
+  .stat span { font-size: 13px; color: var(--muted); }
+  .bar { height: 8px; border-radius: 4px; background: var(--todo-bg); overflow: hidden;
+         display: flex; margin: 6px 0 30px; }
+  .bar i { display: block; height: 100%; }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 26px; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px;
+          border-radius: 20px; white-space: nowrap; }
+  .ok   { background: var(--ok-bg);   color: var(--ok-fg); }
+  .part { background: var(--part-bg); color: var(--part-fg); }
+  .todo { background: var(--todo-bg); color: var(--todo-fg); }
+  .hold { background: var(--hold-bg); color: var(--hold-fg); }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+            padding: 20px 22px; margin-bottom: 16px; }
+  h2 { font-size: 17px; margin-bottom: 4px; color: var(--wood); }
+  .note { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+  ul { list-style: none; }
+  li { display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+       padding: 8px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+  li:first-child { border-top: none; }
+  li small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 1px; }
+  footer { color: var(--muted); font-size: 12.5px; margin-top: 30px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <svg viewBox="0 0 1024 1024" width="64" height="64" role="img" aria-label="Логотип WoodChat">
+      <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#C08A52"/><stop offset="1" stop-color="#6E421F"/>
+      </linearGradient></defs>
+      <rect width="1024" height="1024" rx="232" fill="url(#bg)"/>
+      <ellipse cx="512" cy="474" rx="332" ry="262" fill="#FFF8F0"/>
+      <path d="M338 646 C326 738 288 806 228 856 C332 842 416 802 470 744 Z" fill="#FFF8F0"/>
+      <circle cx="516" cy="470" r="150" fill="none" stroke="#7A4A22" stroke-width="30"/>
+      <circle cx="509" cy="477" r="95" fill="none" stroke="#7A4A22" stroke-width="30"/>
+      <circle cx="514" cy="472" r="42" fill="none" stroke="#7A4A22" stroke-width="30"/>
+    </svg>
+    <div>
+      <div class="brand"><span class="w">Wood</span><span class="c">Chat</span></div>
+      <div class="subtitle">Чеклист функций · внутренняя система чатов и публикаций · 02.08.2026</div>
+    </div>
+  </header>
+
+  <div class="progress">
+    <div class="stat"><b style="color:var(--ok-fg)">26</b><span>готово (backend)</span></div>
+    <div class="stat"><b style="color:var(--part-fg)">9</b><span>частично</span></div>
+    <div class="stat"><b style="color:var(--todo-fg)">15</b><span>в плане</span></div>
+    <div class="stat"><b style="color:var(--hold-fg)">1</b><span>отложено</span></div>
+  </div>
+  <div class="bar">
+    <i style="width:51%; background:var(--ok-fg)"></i>
+    <i style="width:18%; background:var(--part-fg)"></i>
+    <i style="width:29%; background:var(--todo-fg); opacity:.35"></i>
+    <i style="width:2%;  background:var(--hold-fg)"></i>
+  </div>
+
+  <div class="legend">
+    <span><span class="chip ok">Готово</span> — реализовано и проверено тестами</span>
+    <span><span class="chip part">Частично</span> — ядро есть, нужна доработка/проверка</span>
+    <span><span class="chip todo">В плане</span></span>
+    <span><span class="chip hold">Отложено</span></span>
+  </div>
+
+  <section>
+    <h2>💬 Чаты</h2>
+    <ul>
+      <li><div>Личные и групповые чаты<small>backend + веб работают</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Realtime-обновление сообщений (Reverb)</div><span class="chip ok">Готово</span></li>
+      <li><div>Пагинация истории, ответы, пересылка, редактирование</div><span class="chip ok">Готово</span></li>
+      <li><div>Статусы отправки, ретраи, защита от дублей<small>клиентская часть для iOS</small></div><span class="chip part">Частично</span></li>
+      <li><div>Работа при плохом интернете / офлайн-очередь<small>в вебе есть, в iOS — в плане</small></div><span class="chip part">Частично</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🔐 Роли и права</h2>
+    <ul>
+      <li><div>Роли: пользователь / менеджер / администратор</div><span class="chip ok">Готово</span></li>
+      <li><div>Создавать группы могут только менеджер и админ<small>проверка на сервере</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Все критические действия проверяются на backend<small>публикации и промокоды закрыты; общий аудит продолжается</small></div><span class="chip part">Частично</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📣 Мегагруппа анонсов и публикации</h2>
+    <ul>
+      <li><div>Главный канал «Вудстрим новости» (broadcast)</div><span class="chip ok">Готово</span></li>
+      <li><div>Создание / редактирование / удаление публикаций</div><span class="chip ok">Готово</span></li>
+      <li><div>Черновики и статусы публикации</div><span class="chip ok">Готово</span></li>
+      <li><div>Отложенная публикация на сервере<small>часовые пояса, без дублей, переживает перезапуск</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Перенос и отмена запланированной публикации</div><span class="chip ok">Готово</span></li>
+      <li><div>Экран публикаций в веб-версии</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🔀 Единый центр публикаций (каналы)</h2>
+    <p class="note">Внутренняя группа — главный источник. Сбой одного канала не мешает остальным. Статус и повторная отправка — по каждому каналу отдельно.</p>
+    <ul>
+      <li><div>Внутренняя мегагруппа</div><span class="chip ok">Готово</span></li>
+      <li><div>WhatsApp<small>существующий сервис альбомов подключён, не сломан</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Telegram (Bot API)</div><span class="chip ok">Готово</span></li>
+      <li><div>ВКонтакте<small>через существующую очередь — нужна проверка пайплайна</small></div><span class="chip part">Частично</span></li>
+      <li><div>Сайт<small>ждёт решения: блог или страница анонсов</small></div><span class="chip todo">В плане</span></li>
+      <li><div>Статусы каналов + повторная отправка в один канал</div><span class="chip ok">Готово</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🛍 Приложение Woodstream (магазин)</h2>
+    <ul>
+      <li><div>API ленты анонсов из внутренней системы<small>пагинация, альбомы, даты; без Telegram</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Вывод анонсов в разделе чатов приложения<small>нужен доступ к репозиторию приложения; спецификация готова</small></div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🖼 Фотоальбомы</h2>
+    <ul>
+      <li><div>Несколько фото = одна публикация, порядок сохраняется</div><span class="chip ok">Готово</span></li>
+      <li><div>Сетка превью + полноэкранный просмотр с перелистыванием<small>веб частично, iOS в плане</small></div><span class="chip part">Частично</span></li>
+      <li><div>Кеширование и загрузка больших изображений без блокировки UI</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>💬 Комментарии</h2>
+    <ul>
+      <li><div>Вкл/выкл комментарии для каждой публикации</div><span class="chip ok">Готово</span></li>
+      <li><div>Сервер отклоняет комментарии, если они выключены<small>покрыто тестами</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Счётчик комментариев</div><span class="chip ok">Готово</span></li>
+      <li><div>Скрытие поля ввода в интерфейсах</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>❤️ Реакции</h2>
+    <ul>
+      <li><div>Реакции на сообщение (как в Telegram), без дублей</div><span class="chip ok">Готово</span></li>
+      <li><div>Realtime-синхронизация реакций<small>нужна проверка</small></div><span class="chip part">Частично</span></li>
+      <li><div>Единый набор эмодзи во всех приложениях</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📊 Статистика</h2>
+    <ul>
+      <li><div>Просмотры, уникальные читатели, реакции, комментарии, автор, дата, статусы и ошибки каналов<small>только реально собираемые метрики</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Экран статистики для менеджера</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🎟 Промокоды и подарочные карты</h2>
+    <ul>
+      <li><div>Поиск по коду, статус, срок, номинал / остаток</div><span class="chip ok">Готово</span></li>
+      <li><div>Проверка применимости и транзакционное погашение<small>повторная активация исключена — тесты</small></div><span class="chip ok">Готово</span></li>
+      <li><div>История операций + журнал действий менеджеров</div><span class="chip ok">Готово</span></li>
+      <li><div>Доступ только менеджерам и админам<small>тест: обычный пользователь получает 403</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Экран в веб-версии и iOS</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🌐 Веб-версия</h2>
+    <ul>
+      <li><div>Чаты, группы, реакции, лайтбокс, офлайн-очередь</div><span class="chip ok">Готово</span></li>
+      <li><div>Экраны: публикации, статистика, промокоды</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>📱 iOS-приложение WoodChat</h2>
+    <ul>
+      <li><div>Архитектура: свой клиент к внутреннему API<small>ждёт вашего подтверждения (текущий код — SDK Stream, к нашему backend не подключается)</small></div><span class="chip part">Частично</span></li>
+      <li><div>Экраны: чаты, мегагруппа, альбомы, реакции, комментарии</div><span class="chip todo">В плане</span></li>
+      <li><div>Русская локализация всего интерфейса</div><span class="chip todo">В плане</span></li>
+      <li><div>Подготовка к App Store (подпись, приватность, TestFlight)</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🔔 Push-уведомления</h2>
+    <ul>
+      <li><div>Push о сообщениях, публикациях, комментариях, ошибках каналов</div><span class="chip hold">Отложено</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>🧪 Тестирование</h2>
+    <ul>
+      <li><div>Backend: 14 автотестов (публикации, права, комментарии, промокоды)<small>все зелёные</small></div><span class="chip ok">Готово</span></li>
+      <li><div>Сценарии: отложка после перезапуска, частичный сбой канала<small>покрыто тестами, прогон на боевом сервере впереди</small></div><span class="chip part">Частично</span></li>
+      <li><div>E2E веб-версии и UI-тесты iOS</div><span class="chip todo">В плане</span></li>
+    </ul>
+  </section>
+
+  <footer>WoodChat · внутренняя система компании Woodstream · обновлено 02.08.2026</footer>
+</div>
+</body>
+</html>

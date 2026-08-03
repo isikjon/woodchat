@@ -1,0 +1,69 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+import Foundation
+import StreamChat
+import StreamChatCommonUI
+
+extension InjectedValues {
+    /// Provides access to the `ChatClient` instance.
+    @MainActor public var chatClient: ChatClient {
+        get {
+            streamChat.chatClient
+        }
+        set {
+            streamChat.chatClient = newValue
+        }
+    }
+
+    /// Provides access to the `ColorPalette` instance.
+    @MainActor public var colors: Appearance.ColorPalette {
+        get {
+            streamChat.appearance.colorPalette
+        }
+        set {
+            streamChat.appearance.colorPalette = newValue
+        }
+    }
+
+    /// Provides access to the `Utils` instance.
+    @MainActor public var utils: Utils {
+        get {
+            streamChat.utils
+        }
+        set {
+            streamChat.utils = newValue
+        }
+    }
+
+    /// Provides access to the `Images` instance.
+    @MainActor public var images: Appearance.Images {
+        get {
+            streamChat.appearance.images
+        }
+        set {
+            streamChat.appearance.images = newValue
+        }
+    }
+
+    /// Provides access to the `Fonts` instance.
+    @MainActor public var fonts: Appearance.FontsSwiftUI {
+        get {
+            streamChat.appearance.fontsSwiftUI
+        }
+        set {
+            streamChat.appearance.fontsSwiftUI = newValue
+        }
+    }
+    
+    /// Provides access to the `Fonts` instance.
+    @MainActor public var tokens: Appearance.DesignSystemTokens {
+        get {
+            streamChat.appearance.tokens
+        }
+        set {
+            streamChat.appearance.tokens = newValue
+        }
+    }
+}

@@ -1,0 +1,322 @@
+//
+// Copyright © 2026 Stream.io Inc. All rights reserved.
+//
+
+@testable import StreamChat
+@testable import StreamChatSwiftUI
+@testable import StreamChatTestTools
+import XCTest
+
+class ChatChannelTestHelpers {
+    static func makeChannelController(
+        chatClient: ChatClient,
+        chatChannel: ChatChannel? = nil,
+        messages: [ChatMessage] = [],
+        lastActiveWatchers: [ChatUser] = []
+    ) -> ChatChannelController_Mock {
+        let config = ChannelConfig(commands: [Command(name: "giphy", description: "", set: "", args: "")])
+        let channel = chatChannel ?? ChatChannel.mockDMChannel(
+            config: config,
+            ownCapabilities: [.sendMessage, .uploadFile],
+            lastActiveWatchers: lastActiveWatchers
+        )
+        let channelQuery = ChannelQuery(cid: channel.cid)
+        let channelListQuery = ChannelListQuery(filter: .containMembers(userIds: [chatClient.currentUserId ?? .unique]))
+        let channelController = ChatChannelController_Mock.mock(
+            channelQuery: channelQuery,
+            channelListQuery: channelListQuery,
+            client: chatClient
+        )
+        var channelMessages = messages
+        if channelMessages.isEmpty {
+            let message = ChatMessage.mock(
+                id: .unique,
+                cid: channel.cid,
+                text: "Test message",
+                author: ChatUser.mock(id: chatClient.currentUserId ?? .unique)
+            )
+            channelMessages = [message]
+        }
+
+        channelController.simulateInitial(channel: channel, messages: channelMessages, state: .initialized)
+        return channelController
+    }
+    
+    static let testURL = URL.localYodaImage
+    static let testFileURL = URL.localYodaQuote
+
+    static var imageAttachments: [AnyChatMessageAttachment] = {
+        let attachmentFile = AttachmentFile(type: .png, size: 0, mimeType: "image/png")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+        let imageAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageImageAttachment(
+                id: .unique,
+                type: .image,
+                payload: ImageAttachmentPayload(
+                    title: "test",
+                    imageRemoteURL: testURL,
+                    file: attachmentFile,
+                    extraData: [:]
+                ),
+                downloadingState: nil,
+                uploadingState: uploadingState
+            )
+            .asAnyAttachment
+        ]
+
+        return imageAttachments
+    }()
+
+    static func imageAttachment(state: LocalAttachmentState) -> AnyChatMessageAttachment {
+        let attachmentFile = AttachmentFile(type: .png, size: 0, mimeType: "image/png")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: state,
+            file: attachmentFile
+        )
+        return ChatMessageImageAttachment(
+            id: .unique,
+            type: .image,
+            payload: ImageAttachmentPayload(
+                title: "test",
+                imageRemoteURL: testURL,
+                file: attachmentFile,
+                extraData: [:]
+            ),
+            downloadingState: nil,
+            uploadingState: uploadingState
+        )
+        .asAnyAttachment
+    }
+
+    static func imageAttachment(
+        url: URL = testURL,
+        originalWidth: Double? = nil,
+        originalHeight: Double? = nil,
+        state: LocalAttachmentState = .pendingUpload
+    ) -> AnyChatMessageAttachment {
+        let attachmentFile = AttachmentFile(type: .png, size: 0, mimeType: "image/png")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: url,
+            state: state,
+            file: attachmentFile
+        )
+        return ChatMessageImageAttachment(
+            id: .unique,
+            type: .image,
+            payload: ImageAttachmentPayload(
+                title: "test",
+                imageRemoteURL: url,
+                file: attachmentFile,
+                originalWidth: originalWidth,
+                originalHeight: originalHeight,
+                extraData: [:]
+            ),
+            downloadingState: nil,
+            uploadingState: uploadingState
+        )
+        .asAnyAttachment
+    }
+
+    static func imageAttachments(
+        count: Int,
+        originalWidth: Double? = nil,
+        originalHeight: Double? = nil
+    ) -> [AnyChatMessageAttachment] {
+        let urls = [
+            XCTestCase.TestImages.yoda.url,
+            XCTestCase.TestImages.chewbacca.url,
+            XCTestCase.TestImages.r2.url,
+            XCTestCase.TestImages.vader.url,
+            XCTestCase.TestImages.yoda.url
+        ]
+        return (0..<count).map { index in
+            imageAttachment(
+                url: urls[index % urls.count],
+                originalWidth: originalWidth,
+                originalHeight: originalHeight
+            )
+        }
+    }
+
+    static var giphyAttachments: [AnyChatMessageAttachment] = {
+        let attachmentFile = AttachmentFile(type: .gif, size: 0, mimeType: "image/gif")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+        let giphyAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageGiphyAttachment(
+                id: .unique,
+                type: .giphy,
+                payload: GiphyAttachmentPayload(
+                    title: "test",
+                    previewURL: testURL,
+                    actions: []
+                ),
+                downloadingState: nil,
+                uploadingState: uploadingState
+            )
+            .asAnyAttachment
+        ]
+
+        return giphyAttachments
+    }()
+
+    static var videoAttachments: [AnyChatMessageAttachment] = {
+        let attachmentFile = AttachmentFile(type: .mp4, size: 0, mimeType: "video/mp4")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+        let giphyAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageVideoAttachment(
+                id: .unique,
+                type: .video,
+                payload: VideoAttachmentPayload(
+                    title: "test",
+                    videoRemoteURL: testURL,
+                    file: attachmentFile,
+                    extraData: nil
+                ),
+                downloadingState: nil,
+                uploadingState: uploadingState
+            )
+            .asAnyAttachment
+        ]
+
+        return giphyAttachments
+    }()
+
+    static var videoAttachment: ChatMessageVideoAttachment = {
+        let attachmentFile = AttachmentFile(type: .mp4, size: 0, mimeType: "video/mp4")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+
+        return ChatMessageVideoAttachment(
+            id: .unique,
+            type: .video,
+            payload: VideoAttachmentPayload(
+                title: "test",
+                videoRemoteURL: testURL,
+                file: attachmentFile,
+                extraData: nil
+            ),
+            downloadingState: nil,
+            uploadingState: uploadingState
+        )
+
+    }()
+
+    static var linkAttachments: [AnyChatMessageAttachment] = {
+        let attachmentFile = AttachmentFile(type: .generic, size: 0, mimeType: "video/mp4")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+        let linkAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageLinkAttachment(
+                id: .unique,
+                type: .linkPreview,
+                payload: LinkAttachmentPayload(
+                    originalURL: testURL,
+                    title: "test",
+                    text: "test",
+                    author: "test",
+                    titleLink: testURL,
+                    assetURL: testURL,
+                    previewURL: testURL
+                ),
+                downloadingState: nil,
+                uploadingState: uploadingState
+            )
+            .asAnyAttachment
+        ]
+
+        return linkAttachments
+    }()
+
+    static var fileAttachments: [AnyChatMessageAttachment] {
+        let attachmentFile = AttachmentFile(type: .generic, size: 0, mimeType: "video/mp4")
+        let uploadingState = AttachmentUploadingState(
+            localFileURL: testURL,
+            state: .pendingUpload,
+            file: attachmentFile
+        )
+        let fileAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageFileAttachment(
+                id: .unique,
+                type: .file,
+                payload:
+                FileAttachmentPayload(
+                    title: "test",
+                    assetRemoteURL: testURL,
+                    file: attachmentFile,
+                    extraData: nil
+                ),
+                downloadingState: nil,
+                uploadingState: uploadingState
+            )
+            .asAnyAttachment
+        ]
+
+        return fileAttachments
+    }
+
+    static var pdfFileAttachments: [AnyChatMessageAttachment] {
+        let attachmentFile = AttachmentFile(type: .generic, size: 0, mimeType: "application/pdf")
+        let fileAttachments: [AnyChatMessageAttachment] = [
+            ChatMessageFileAttachment(
+                id: .unique,
+                type: .file,
+                payload:
+                FileAttachmentPayload(
+                    title: "test",
+                    assetRemoteURL: testURL,
+                    file: attachmentFile,
+                    extraData: nil
+                ),
+                downloadingState: nil,
+                uploadingState: nil
+            )
+            .asAnyAttachment
+        ]
+
+        return fileAttachments
+    }
+
+    static func voiceRecordingAttachments(count: Int) -> [AnyChatMessageAttachment] {
+        (0..<count).map { index in
+            let title = index == 0 ? "Recording" : "Recording-\(index)"
+            let payload = VoiceRecordingAttachmentPayload(
+                title: title,
+                voiceRecordingRemoteURL: testURL,
+                file: try! .init(url: testFileURL),
+                duration: Double(index) + 5.0,
+                waveformData: [0, 0.1, 0.5, 1],
+                extraData: nil
+            )
+            return ChatMessageVoiceRecordingAttachment(
+                id: .unique,
+                type: .voiceRecording,
+                payload: payload,
+                downloadingState: nil,
+                uploadingState: nil
+            ).asAnyAttachment
+        }
+    }
+    
+    static var voiceRecordingAttachments: [AnyChatMessageAttachment] {
+        voiceRecordingAttachments(count: 1)
+    }
+}

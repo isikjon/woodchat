@@ -1,0 +1,23 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - run: swiftlint lint --config .swiftlint.yml --fix --progress --reporter json {staged_files}
+      glob: "*.{swift}"
+      stage_fixed: true
+      skip:
+        - merge
+        - rebase
+
+    - run: swiftformat --config .swiftformat {staged_files}
+      glob: "*.{swift}"
+      stage_fixed: true
+      skip:
+        - merge
+        - rebase
+
+pre-push:
+  jobs:
+    - run: swiftlint lint --config .swiftlint.yml --strict --progress --reporter json {push_files}
+      glob: "*.{swift}"
+      skip:
+        - merge-commit
