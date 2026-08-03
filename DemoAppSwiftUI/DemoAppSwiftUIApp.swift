@@ -1,5 +1,5 @@
 //
-// Copyright © 2026 Stream.io Inc. All rights reserved.
+// WoodChat — внутренний мессенджер Woodstream.
 //
 
 import Combine
@@ -34,10 +34,10 @@ struct DemoAppSwiftUIApp: App {
             case .loggedIn:
                 TabView {
                     channelListView()
-                        .tabItem { Label("Chat", systemImage: "message") }
+                        .tabItem { Label("Чаты", systemImage: "message") }
                         .badge(appState.unreadCount.channels)
                     threadListView()
-                        .tabItem { Label("Threads", systemImage: "text.bubble") }
+                        .tabItem { Label("Обсуждения", systemImage: "text.bubble") }
                         .badge(appState.unreadCount.threads)
                 }
                 .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
@@ -58,6 +58,7 @@ struct DemoAppSwiftUIApp: App {
             ChatChannelListView(
                 viewFactory: DemoAppFactory.shared,
                 channelListController: channelListController,
+                title: "WoodChat",
                 selectedChannelId: notificationsHandler.notificationChannelId,
                 searchType: channelListSearchType
             )
@@ -65,6 +66,7 @@ struct DemoAppSwiftUIApp: App {
             ChatChannelListView(
                 viewFactory: DemoAppFactory.shared,
                 channelListController: channelListController,
+                title: "WoodChat",
                 searchType: channelListSearchType
             )
         }

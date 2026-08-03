@@ -1,5 +1,5 @@
 //
-// Copyright © 2026 Stream.io Inc. All rights reserved.
+// WoodChat — внутренний мессенджер Woodstream.
 //
 
 import UIKit

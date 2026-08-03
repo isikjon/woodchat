@@ -32,7 +32,6 @@
 		ADCE879D2F0D5CF500F6A7C3 /* StreamChatTestMockServer in Frameworks */ = {isa = PBXBuildFile; productRef = ADCE879C2F0D5CF500F6A7C3 /* StreamChatTestMockServer */; };
 		ADCE879F2F0D5D0300F6A7C3 /* StreamChatCommonUI in Frameworks */ = {isa = PBXBuildFile; productRef = ADCE879E2F0D5D0300F6A7C3 /* StreamChatCommonUI */; };
 		ADCE87A52F0D5ED900F6A7C3 /* StreamChat in Frameworks */ = {isa = PBXBuildFile; productRef = ADCE87A42F0D5ED900F6A7C3 /* StreamChat */; };
-		E3A1C01C282BAC66002D1E26 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = E3A1C01B282BAC66002D1E26 /* Sentry */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -422,7 +421,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				8465FCE6274695B400AF091E /* StreamChatSwiftUI.framework in Frameworks */,
-				E3A1C01C282BAC66002D1E26 /* Sentry in Frameworks */,
 				ADCE871A2F0C290B00F6A7C3 /* StreamChat in Frameworks */,
 				4FB52B472EBB63F700491977 /* StreamCore in Frameworks */,
 				ADCE871C2F0C291600F6A7C3 /* StreamChatCommonUI in Frameworks */,
@@ -609,7 +607,6 @@
 			);
 			name = DemoAppSwiftUI;
 			packageProductDependencies = (
-				E3A1C01B282BAC66002D1E26 /* Sentry */,
 				4FB52B462EBB63F700491977 /* StreamCore */,
 				ADCE87192F0C290B00F6A7C3 /* StreamChat */,
 				ADCE871B2F0C291600F6A7C3 /* StreamChatCommonUI */,
@@ -657,7 +654,6 @@
 			);
 			mainGroup = 8465FBAB2746873A00AF091E;
 			packageReferences = (
-				E3A1C01A282BAC66002D1E26 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 				8400A346282C06F90067D3A0 /* XCRemoteSwiftPackageReference "OHHTTPStubs" */,
 				82543C7B2AD41B0400D5F6CD /* XCRemoteSwiftPackageReference "stream-chat-swift-test-helpers" */,
 				4FB52B452EBB63F700491977 /* XCRemoteSwiftPackageReference "stream-core-swift" */,
@@ -963,7 +959,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.getstream.iOS.DemoAppSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.isikjandev.woodchat;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1401,7 +1397,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.getstream.iOS.DemoAppSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.isikjandev.woodchat;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1435,7 +1431,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = io.getstream.iOS.DemoAppSwiftUI;
+				PRODUCT_BUNDLE_IDENTIFIER = com.isikjandev.woodchat;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "match AppStore io.getstream.iOS.DemoAppSwiftUI";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -1540,14 +1536,6 @@
 			requirement = {
 				branch = v5;
 				kind = branch;
-			};
-		};
-		E3A1C01A282BAC66002D1E26 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/getsentry/sentry-cocoa.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 8.30.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -1662,11 +1650,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 84E7F9E02EFAF9BF00BA56A3 /* XCRemoteSwiftPackageReference "stream-chat-swift" */;
 			productName = StreamChat;
-		};
-		E3A1C01B282BAC66002D1E26 /* Sentry */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = E3A1C01A282BAC66002D1E26 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
-			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

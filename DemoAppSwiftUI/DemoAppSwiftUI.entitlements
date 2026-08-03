@@ -6,7 +6,7 @@
 	<string>development</string>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.io.getstream.iOS.ChatDemoAppSwiftUI</string>
+		<string>group.com.isikjandev.woodchat</string>
 	</array>
 </dict>
 </plist>

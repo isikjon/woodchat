@@ -1,5 +1,5 @@
 //
-// Copyright © 2026 Stream.io Inc. All rights reserved.
+// WoodChat — внутренний мессенджер Woodstream.
 //
 
 import Foundation
@@ -7,7 +7,7 @@ import Foundation
 // WoodChat: собственный сервер (шлюз Stream-протокола на chat.woodstream.online)
 public let apiKeyString = "woodchat"
 public let woodChatServerURL = "https://chat.woodstream.online/streamapi"
-public let applicationGroupIdentifier = "group.io.getstream.iOS.ChatDemoAppSwiftUI"
+public let applicationGroupIdentifier = "group.com.isikjandev.woodchat"
 public let currentUserIdRegisteredForPush = "currentUserIdRegisteredForPush"
 
 public struct UserCredentials: Codable, Sendable {
