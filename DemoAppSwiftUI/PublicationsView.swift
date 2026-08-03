@@ -79,7 +79,7 @@ enum WoodChatAPIError: Error {
 }
 
 enum WoodChatAPI {
-    static let base = URL(string: "https://chat.woodstream.online/api/chat-panel")!
+    static let base = URL(string: "https://chat.woodstream.online/api/mobile/v1")!
 
     @MainActor static var token: String? {
         UnsecureRepository.shared.loadCurrentUser()?.apiToken
