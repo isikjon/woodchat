@@ -39,6 +39,11 @@ struct DemoAppSwiftUIApp: App {
                     threadListView()
                         .tabItem { Label("Обсуждения", systemImage: "text.bubble") }
                         .badge(appState.unreadCount.threads)
+                    if #available(iOS 16.0, *),
+                       UnsecureRepository.shared.loadCurrentUser()?.isManager == true {
+                        PublicationsView()
+                            .tabItem { Label("Анонсы", systemImage: "megaphone") }
+                    }
                 }
                 .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
                 .id(appState.contentIdentifier)

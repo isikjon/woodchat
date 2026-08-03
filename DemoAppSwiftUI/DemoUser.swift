@@ -16,9 +16,35 @@ public struct UserCredentials: Codable, Sendable {
     public let avatarURL: URL?
     public let token: String
     public let birthLand: String
+    /// Токен REST API Laravel (публикации, промокоды); nil у старых сохранённых сессий
+    public let apiToken: String?
+    /// Роль пользователя: "manager" или "user"
+    public let role: String?
+
+    public init(
+        id: String,
+        name: String,
+        avatarURL: URL?,
+        token: String,
+        birthLand: String,
+        apiToken: String? = nil,
+        role: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.avatarURL = avatarURL
+        self.token = token
+        self.birthLand = birthLand
+        self.apiToken = apiToken
+        self.role = role
+    }
 
     var isGuest: Bool {
         id == "guest"
+    }
+
+    var isManager: Bool {
+        role == "manager"
     }
 
     static var guestUser: UserCredentials {

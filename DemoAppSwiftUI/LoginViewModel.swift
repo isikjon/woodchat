@@ -26,6 +26,12 @@ import SwiftUI
 
         let token: String
         let user: LoginUser
+        let apiToken: String?
+
+        enum CodingKeys: String, CodingKey {
+            case token, user
+            case apiToken = "api_token"
+        }
     }
 
     /// Вход через собственный сервер WoodChat: получаем токен и подключаем SDK.
@@ -60,7 +66,9 @@ import SwiftUI
                     name: result.user.name ?? email,
                     avatarURL: result.user.image.flatMap(URL.init(string:)),
                     token: result.token,
-                    birthLand: ""
+                    birthLand: "",
+                    apiToken: result.apiToken,
+                    role: result.user.role
                 )
                 connectUser(withCredentials: credentials)
             } catch {
