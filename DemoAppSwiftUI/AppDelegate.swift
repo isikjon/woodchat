@@ -15,7 +15,8 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         // WoodChat: приложение работает с собственным сервером вместо облака Stream
         config.baseURL = BaseURL(url: URL(string: woodChatServerURL)!)
         config.isLocalStorageEnabled = true
-        config.applicationGroupIdentifier = applicationGroupIdentifier
+        // App Group отключён (бесплатный Apple ID не поддерживает).
+        // Вернуть при платном аккаунте: config.applicationGroupIdentifier = applicationGroupIdentifier
 
         let client = ChatClient(config: config)
         return client

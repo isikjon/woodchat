@@ -2,11 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>aps-environment</key>
-	<string>development</string>
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>group.com.isikjandev.woodchat</string>
-	</array>
+<!--
+	Push Notifications (aps-environment) и App Groups убраны:
+	бесплатный личный Apple ID их не поддерживает, а пуши отложены.
+	Вернуть при переходе на платный аккаунт разработчика:
+	  aps-environment = development
+	  application-groups = group.com.isikjandev.woodchat
+-->
 </dict>
 </plist>
