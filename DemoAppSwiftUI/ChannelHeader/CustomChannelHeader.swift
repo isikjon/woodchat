@@ -36,7 +36,7 @@ public struct CustomChannelHeader: ToolbarContent {
                     .background(Color(colors.navigationBarTintColor))
                     .clipShape(Circle())
             }
-            .accessibilityLabel(Text("New Channel"))
+            .accessibilityLabel(Text("Новый чат"))
         }
         ToolbarItem(placement: .navigationBarLeading) {
             Button {
@@ -44,13 +44,13 @@ public struct CustomChannelHeader: ToolbarContent {
             } label: {
                 if let user = currentUserController.currentUser {
                     UserAvatar(user: user, size: 36)
-                        .accessibilityLabel("Account Actions")
+                        .accessibilityLabel("Профиль и настройки")
                         .accessibilityAddTraits(.isButton)
                 } else {
                     Circle()
                         .fill(Color.gray)
                         .frame(width: 36, height: 36)
-                        .accessibilityLabel("Account Actions")
+                        .accessibilityLabel("Профиль и настройки")
                         .accessibilityAddTraits(.isButton)
                 }
             }
@@ -68,6 +68,7 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
     @State var logoutAlertShown = false
     @State var actionsPopupShown = false
     @State var blockedUsersShown = false
+    @State var accountShown = false
 
     func body(content: Content) -> some View {
         ZStack {
@@ -110,9 +111,9 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
             .opacity(0) // Fixes showing accessibility button shape
             .alert(isPresented: $logoutAlertShown) {
                 Alert(
-                    title: Text("Sign out"),
-                    message: Text("Are you sure you want to sign out?"),
-                    primaryButton: .destructive(Text("Sign out")) {
+                    title: Text("Выход"),
+                    message: Text("Выйти из аккаунта?"),
+                    primaryButton: .destructive(Text("Выйти")) {
                         withAnimation {
                             chatClient.logout {
                                 UnsecureRepository.shared.removeCurrentUser()
@@ -126,25 +127,32 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
                 )
             }
             .confirmationDialog("", isPresented: $actionsPopupShown) {
-                Button("Choose Channel Query") {
-                    isChooseChannelQueryShown = true
+                if #available(iOS 16.0, *) {
+                    Button("Профиль и аккаунт") {
+                        accountShown = true
+                    }
                 }
-                Button("Show Blocked Users") {
+                Button("Заблокированные пользователи") {
                     blockedUsersShown = true
                 }
-                
-                Button("Logout", role: .destructive) {
+
+                Button("Выйти", role: .destructive) {
                     logoutAlertShown = true
                 }
-                
-                Button("Cancel", role: .cancel) {}
+
+                Button("Отмена", role: .cancel) {}
             } message: {
-                Text("Select an action")
+                Text("Выберите действие")
             }
             .confirmationDialog("", isPresented: $isChooseChannelQueryShown) {
                 ChooseChannelQueryView()
             } message: {
-                Text("Choose a channel query")
+                Text("Выберите фильтр чатов")
+            }
+            .sheet(isPresented: $accountShown) {
+                if #available(iOS 16.0, *) {
+                    AccountView()
+                }
             }
         }
     }

@@ -85,7 +85,7 @@ enum WoodChatAPI {
         UnsecureRepository.shared.loadCurrentUser()?.apiToken
     }
 
-    private static func request(_ path: String, method: String = "GET") async throws -> URLRequest {
+    static func buildRequest(_ path: String, method: String = "GET") async throws -> URLRequest {
         guard let token = await token else { throw WoodChatAPIError.noToken }
         var request = URLRequest(url: base.appendingPathComponent(path))
         request.httpMethod = method
@@ -94,7 +94,7 @@ enum WoodChatAPI {
         return request
     }
 
-    private static func run(_ request: URLRequest) async throws -> Data {
+    static func runRequest(_ request: URLRequest) async throws -> Data {
         let (data, response) = try await URLSession.shared.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200 ..< 300).contains(code) else {
@@ -105,7 +105,7 @@ enum WoodChatAPI {
 
     static func publications() async throws -> [WCPublication] {
         struct ListResponse: Decodable { let items: [WCPublication] }
-        let data = try await run(try await request("publications"))
+        let data = try await runRequest(try await buildRequest("publications"))
         return try JSONDecoder().decode(ListResponse.self, from: data).items
     }
 
@@ -116,7 +116,7 @@ enum WoodChatAPI {
         scheduledAt: Date?,
         commentsEnabled: Bool
     ) async throws {
-        var request = try await request("publications", method: "POST")
+        var request = try await buildRequest("publications", method: "POST")
         let boundary = "woodchat-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
@@ -151,19 +151,19 @@ enum WoodChatAPI {
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
         request.httpBody = body
 
-        _ = try await run(request)
+        _ = try await runRequest(request)
     }
 
     static func publishNow(id: Int) async throws {
-        _ = try await run(try await request("publications/\(id)/publish", method: "POST"))
+        _ = try await runRequest(try await buildRequest("publications/\(id)/publish", method: "POST"))
     }
 
     static func cancel(id: Int) async throws {
-        _ = try await run(try await request("publications/\(id)/cancel", method: "POST"))
+        _ = try await runRequest(try await buildRequest("publications/\(id)/cancel", method: "POST"))
     }
 
     static func delete(id: Int) async throws {
-        _ = try await run(try await request("publications/\(id)", method: "DELETE"))
+        _ = try await runRequest(try await buildRequest("publications/\(id)", method: "DELETE"))
     }
 }
 

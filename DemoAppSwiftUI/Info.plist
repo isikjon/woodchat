@@ -39,11 +39,11 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need access to your camera for sending photo attachments.</string>
+	<string>WoodChat использует камеру, чтобы вы могли отправлять фотографии в чат.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is needed for recording videos.</string>
+	<string>WoodChat использует микрофон для записи голосовых сообщений.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Access to your photo library is needed for attaching photos.</string>
+	<string>WoodChat запрашивает доступ к фото, чтобы вы могли отправлять их в чат.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
