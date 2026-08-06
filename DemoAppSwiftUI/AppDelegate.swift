@@ -77,14 +77,32 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             "wow": "😮"
         ]
 
+        // Даты всегда на русском: бандл объявляет только en-локализацию,
+        // поэтому системная локаль процесса не переключается на русскую сама
+        let ruLocale = Locale(identifier: "ru_RU")
+        let messageDateFormatter = DateFormatter.makeDefault()
+        messageDateFormatter.locale = ruLocale
+        let timestampFormatter = ChannelListMessageTimestampFormatter()
+        timestampFormatter.timeFormatter.locale = ruLocale
+        timestampFormatter.relativeDateFormatter.locale = ruLocale
+        timestampFormatter.weekDayDateFormatter.locale = ruLocale
+        timestampFormatter.weekDayDateFormatter.setLocalizedDateFormatFromTemplate("EEEE")
+        timestampFormatter.dateFormatter.locale = ruLocale
+        let separatorFormatter = DefaultMessageDateSeparatorFormatter()
+        separatorFormatter.dateFormatter.locale = ruLocale
+        separatorFormatter.dateFormatter.setLocalizedDateFormatFromTemplate("MMMdd")
+
         let utils = Utils(
+            dateFormatter: messageDateFormatter,
+            messageTimestampFormatter: timestampFormatter,
+            messageDateSeparatorFormatter: separatorFormatter,
             channelListConfig: ChannelListConfig(
                 channelItemMutedStyle: .bottomRightCorner
             ),
             messageListConfig: AppConfiguration.makeMessageListConfig(),
             composerConfig: ComposerConfig(isVoiceRecordingEnabled: true)
         )
-        streamChat = StreamChat(chatClient: chatClient, utils: utils)
+        streamChat = StreamChat(chatClient: chatClient, appearance: appearance, utils: utils)
         
         let credentials = UnsecureRepository.shared.loadCurrentUser()
         if let credentials, let token = try? Token(rawValue: credentials.token) {

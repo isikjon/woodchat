@@ -63,7 +63,7 @@ struct CreateGroupView: View, KeyboardReadable {
                 .disabled(viewModel.selectedUsers.isEmpty)
             }
         })
-        .navigationTitle("Add group members")
+        .navigationTitle("Участники группы")
         .alert(isPresented: $viewModel.errorShown) {
             Alert.defaultErrorAlert
         }
@@ -164,7 +164,7 @@ struct SearchBar: View {
                         for: nil
                     )
                 }) {
-                    Text("Cancel")
+                    Text("Отмена")
                 }
                 .padding(.trailing, 10)
                 .transition(.move(edge: .trailing))

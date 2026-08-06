@@ -21,7 +21,7 @@ struct NewChatView: View, KeyboardReadable {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("TO:")
+                Text("КОМУ:")
                     .font(fonts.footnote)
                     .foregroundColor(Color(colors.textLowEmphasis))
 
@@ -98,7 +98,7 @@ struct NewChatView: View, KeyboardReadable {
         }
         .toolbarThemed {
             ToolbarItem(placement: .principal) {
-                Text("New Chat")
+                Text("Новый чат")
                     .font(fonts.bodyBold)
                     .foregroundColor(Color(colors.navigationBarTitle))
             }
@@ -147,7 +147,7 @@ struct SearchUsersView: View {
 
     var body: some View {
         HStack {
-            TextField("Type a name", text: $viewModel.searchText)
+            TextField("Введите имя", text: $viewModel.searchText)
             Button {
                 if viewModel.state == .channel {
                     withAnimation {
@@ -188,7 +188,7 @@ struct CreateGroupButton: View {
                     .renderingMode(.template)
                     .foregroundColor(Color(colors.accentPrimary))
 
-                Text("Create a group")
+                Text("Создать группу")
                     .font(fonts.bodyBold)
                     .foregroundColor(Color(colors.text))
 
@@ -237,7 +237,7 @@ struct UsersHeaderView: View {
     @Injected(\.colors) var colors
     @Injected(\.fonts) var fonts
 
-    var title = "On the platform"
+    var title = "Сотрудники и клиенты"
 
     var body: some View {
         HStack {

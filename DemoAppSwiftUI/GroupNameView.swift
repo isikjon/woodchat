@@ -18,7 +18,7 @@ struct GroupNameView: View, KeyboardReadable {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("NAME")
+                Text("НАЗВАНИЕ")
                     .font(fonts.footnote)
                     .foregroundColor(Color(colors.textLowEmphasis))
 
@@ -36,7 +36,7 @@ struct GroupNameView: View, KeyboardReadable {
             }
             .padding()
 
-            UsersHeaderView(title: "\(viewModel.selectedUsers.count) Members")
+            UsersHeaderView(title: "Участников: \(viewModel.selectedUsers.count)")
 
             List(viewModel.selectedUsers) { user in
                 HStack {
@@ -60,7 +60,7 @@ struct GroupNameView: View, KeyboardReadable {
             }
             .listStyle(.plain)
         }
-        .navigationTitle("Name of Group Chat")
+        .navigationTitle("Название группы")
         .alert(isPresented: $viewModel.errorShown) {
             Alert.defaultErrorAlert
         }

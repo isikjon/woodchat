@@ -72,12 +72,12 @@ import SwiftUI
 
     func onlineInfo(for user: ChatUser) -> String {
         if user.isOnline {
-            "Online"
+            "В сети"
         } else if let lastActiveAt = user.lastActiveAt,
                   let timeAgo = lastSeenDateFormatter(lastActiveAt) {
             timeAgo
         } else {
-            "Offline"
+            "Не в сети"
         }
     }
 
