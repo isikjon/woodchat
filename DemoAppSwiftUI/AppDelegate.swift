@@ -3,6 +3,7 @@
 //
 
 import StreamChat
+import StreamChatCommonUI
 import StreamChatSwiftUI
 import SwiftUI
 import UIKit
@@ -52,7 +53,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
          let messageTypeResolver = CustomMessageTypeResolver()
          let utils = Utils(messageTypeResolver: messageTypeResolver)
 
-         streamChat = StreamChat(chatClient: chatClient, utils: utils)
+         streamChat = StreamChat(chatClient: chatClient, appearance: appearance, utils: utils)
          */
 
         LogConfig.level = StreamRuntimeCheck.logLevel ?? .warning
@@ -63,6 +64,19 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             LogConfig.subsystems = subsystems
         }
         
+        // Единый набор реакций WoodChat: те же эмодзи, что в веб-версии
+        var appearance = Appearance()
+        appearance.images.availableMessagesReactionEmojis = [
+            "like": "👍",
+            "love": "❤️",
+            "haha": "😂",
+            "fire": "🔥",
+            "clap": "👏",
+            "pray": "🙏",
+            "ok": "👌",
+            "wow": "😮"
+        ]
+
         let utils = Utils(
             channelListConfig: ChannelListConfig(
                 channelItemMutedStyle: .bottomRightCorner
