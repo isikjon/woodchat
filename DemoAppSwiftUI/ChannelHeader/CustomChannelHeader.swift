@@ -69,6 +69,7 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
     @State var actionsPopupShown = false
     @State var blockedUsersShown = false
     @State var accountShown = false
+    @State var backgroundsShown = false
 
     func body(content: Content) -> some View {
         ZStack {
@@ -136,6 +137,10 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
                     blockedUsersShown = true
                 }
 
+                Button("Фон чатов") {
+                    backgroundsShown = true
+                }
+
                 Button("Выйти", role: .destructive) {
                     logoutAlertShown = true
                 }
@@ -153,6 +158,9 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
                 if #available(iOS 16.0, *) {
                     AccountView()
                 }
+            }
+            .sheet(isPresented: $backgroundsShown) {
+                ChatBackgroundsCatalogView()
             }
         }
     }

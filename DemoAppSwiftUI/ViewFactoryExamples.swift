@@ -20,6 +20,11 @@ class DemoAppFactory: ViewFactory {
     func makeChannelListHeaderViewModifier(options: ChannelListHeaderViewModifierOptions) -> some ChannelListHeaderViewModifier {
         CustomChannelModifier(title: options.title)
     }
+
+    // Фон переписки: выбранный пользователем фон из каталога
+    func makeMessageListBackground(options: MessageListBackgroundOptions) -> some View {
+        WCChatBackgroundView()
+    }
     
     func supportedMoreChannelActions(
         options: SupportedMoreChannelActionsOptions

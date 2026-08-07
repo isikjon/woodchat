@@ -36,9 +36,6 @@ struct DemoAppSwiftUIApp: App {
                     channelListView()
                         .tabItem { Label("Чаты", systemImage: "message") }
                         .badge(appState.unreadCount.channels)
-                    threadListView()
-                        .tabItem { Label("Обсуждения", systemImage: "text.bubble") }
-                        .badge(appState.unreadCount.threads)
                     if #available(iOS 16.0, *),
                        UnsecureRepository.shared.loadCurrentUser()?.isManager == true {
                         PublicationsView()
