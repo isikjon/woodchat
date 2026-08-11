@@ -108,8 +108,17 @@ WoodChat — мессенджер компании Woodstream для общен�
 
 **Демо-аккаунт для проверяющего** (обязательно, вход по паролю):
 ```
-Логин: test-manager@woodchat.local
-Пароль: WoodChat2026!mgr
+Логин: demo@woodchat.local
+Пароль: WoodChat2026!demo
+```
+Запасной: test-manager@woodchat.local / WoodChat2026!mgr
+
+**Тестовые пользователи** (для проверки чатов, групп и звонков между аккаунтами):
+```
+test1@woodchat.local / WoodTest2026!1
+test2@woodchat.local / WoodTest2026!2
+test3@woodchat.local / WoodTest2026!3
+test4@woodchat.local / WoodTest2026!4
 ```
 Пометка для ревьюера:
 ```
