@@ -1,5 +1,6 @@
 //
 // WoodChat — внутренний мессенджер Woodstream.
+// Хранение сессии пользователя (токены Stream и REST API) в Keychain.
 //
 
 import Foundation
@@ -7,55 +8,92 @@ import StreamChat
 
 protocol UserRepository {
     func save(user: UserCredentials)
-        
+
     func loadCurrentUser() -> UserCredentials?
-    
+
     func removeCurrentUser()
 }
 
-// NOTE: This is just for simplicity. User data shouldn't be kept in `UserDefaults`.
-final class UnsecureRepository: UserRepository {
-    enum Key: String, CaseIterable {
-        case user = "stream.chat.user"
-    }
+/// Keychain-хранилище учётных данных. Токены и профиль лежат в защищённом
+/// хранилище с доступом только после первой разблокировки и только на этом
+/// устройстве (не попадает в резервные копии iCloud/iTunes).
+final class SecureUserRepository: UserRepository {
+    private let service = "online.woodstream.woodchat"
+    private let account = "current-user"
 
-    private let defaults: UserDefaults
+    // Однократная миграция со старого небезопасного хранилища (UserDefaults).
+    private let legacyDefaultsKey = "stream.chat.user"
 
-    private init(defaults: UserDefaults = UserDefaults.standard) {
-        self.defaults = defaults
-    }
+    @MainActor static let shared = SecureUserRepository()
 
-    private func set(_ value: Any?, for key: Key) {
-        defaults.set(value, forKey: key.rawValue)
+    private init() {
+        migrateFromDefaultsIfNeeded()
     }
-
-    private func get<T>(for key: Key) -> T? {
-        defaults.object(forKey: key.rawValue) as? T
-    }
-    
-    @MainActor static let shared = UnsecureRepository()
 
     func save(user: UserCredentials) {
-        let encoder = JSONEncoder()
-        if let encoded = try? encoder.encode(user) {
-            set(encoded, for: .user)
-        }
+        guard let data = try? JSONEncoder().encode(user) else { return }
+        writeToKeychain(data)
     }
 
     func loadCurrentUser() -> UserCredentials? {
-        if let savedUser: Data = get(for: .user) {
-            let decoder = JSONDecoder()
-            do {
-                let loadedUser = try decoder.decode(UserCredentials.self, from: savedUser)
-                return loadedUser
-            } catch {
-                log.error("Error while decoding user")
-            }
-        }
-        return nil
+        guard let data = readFromKeychain() else { return nil }
+        return try? JSONDecoder().decode(UserCredentials.self, from: data)
     }
-    
+
     func removeCurrentUser() {
-        defaults.set(nil, forKey: Key.user.rawValue)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    // MARK: - Keychain
+
+    private func writeToKeychain(_ data: Data) {
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        // Обновляем, если запись уже есть, иначе создаём.
+        let attributes: [String: Any] = [
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        ]
+
+        let status = SecItemUpdate(base as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            var insert = base
+            insert[kSecValueData as String] = data
+            insert[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            SecItemAdd(insert as CFDictionary, nil)
+        }
+    }
+
+    private func readFromKeychain() -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    private func migrateFromDefaultsIfNeeded() {
+        let defaults = UserDefaults.standard
+        guard let legacy = defaults.data(forKey: legacyDefaultsKey) else { return }
+        // Переносим в Keychain и стираем открытую копию.
+        if readFromKeychain() == nil {
+            writeToKeychain(legacy)
+        }
+        defaults.removeObject(forKey: legacyDefaultsKey)
     }
 }

@@ -15,6 +15,10 @@ struct DemoAppSwiftUIApp: App {
 
     @ObservedObject var appState = AppState.shared
     @ObservedObject var notificationsHandler = NotificationsHandler.shared
+    @ObservedObject var appLock = AppLockManager.shared
+
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var jailbreakWarningShown = false
 
     var channelListController: ChatChannelListController? {
         appState.channelListController
@@ -26,24 +30,50 @@ struct DemoAppSwiftUIApp: App {
 
     var body: some Scene {
         WindowGroup {
-            switch appState.userState {
-            case .launchAnimation:
-                StreamLogoLaunch()
-            case .notLoggedIn:
-                LoginView()
-            case .loggedIn:
-                TabView {
-                    channelListView()
-                        .tabItem { Label("Чаты", systemImage: "message") }
-                        .badge(appState.unreadCount.channels)
-                    if #available(iOS 16.0, *),
-                       UnsecureRepository.shared.loadCurrentUser()?.isManager == true {
-                        PublicationsView()
-                            .tabItem { Label("Анонсы", systemImage: "megaphone") }
+            ZStack {
+                switch appState.userState {
+                case .launchAnimation:
+                    StreamLogoLaunch()
+                case .notLoggedIn:
+                    LoginView()
+                case .loggedIn:
+                    TabView {
+                        channelListView()
+                            .tabItem { Label("Чаты", systemImage: "message") }
+                            .badge(appState.unreadCount.channels)
+                        if #available(iOS 16.0, *),
+                           SecureUserRepository.shared.loadCurrentUser()?.isManager == true {
+                            PublicationsView()
+                                .tabItem { Label("Анонсы", systemImage: "megaphone") }
+                        }
                     }
+                    .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
+                    .id(appState.contentIdentifier)
                 }
-                .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
-                .id(appState.contentIdentifier)
+
+                // Шторка при сворачивании — прячет переписку в App Switcher
+                if scenePhase != .active, appState.userState == .loggedIn {
+                    PrivacyScreenView()
+                }
+
+                // Блокировка по Face ID / коду поверх всего
+                if appLock.isLocked, appState.userState == .loggedIn {
+                    AppLockOverlay()
+                }
+            }
+            .alert("Небезопасное устройство", isPresented: $jailbreakWarningShown) {
+                Button("Понятно", role: .cancel) {}
+            } message: {
+                Text("Похоже, устройство взломано (jailbreak). Данные переписки могут быть небезопасны. Рекомендуем использовать приложение на обычном устройстве.")
+            }
+            .onAppear {
+                if JailbreakCheck.isJailbroken {
+                    jailbreakWarningShown = true
+                }
+                // Холодный старт с сохранённой сессией — сразу под замок
+                if SecureUserRepository.shared.loadCurrentUser() != nil {
+                    appLock.lockIfNeeded()
+                }
             }
         }
         .onChange(of: appState.userState) { newValue in
@@ -51,6 +81,16 @@ struct DemoAppSwiftUIApp: App {
                 // Push-уведомления отложены (решение заказчика, 08.2026) —
                 // вернуть вызов при подключении APNs.
                 // notificationsHandler.setupRemoteNotifications()
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .background:
+                appLock.lockIfNeeded()
+            case .active:
+                if appLock.isLocked { appLock.authenticate() }
+            default:
+                break
             }
         }
     }

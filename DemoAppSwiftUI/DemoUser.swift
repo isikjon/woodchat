@@ -63,6 +63,9 @@ extension UserCredentials: Identifiable {
         builtInUsers.filter { $0.id == id }.first
     }
 
+    #if DEBUG
+    // Демо-аккаунты Stream (тестовые JWT) — только для отладки.
+    // В релизной сборке массив пуст, токены не попадают в бинарник.
     static let builtInUsers: [UserCredentials] = [
         (
             "luke_skywalker",
@@ -179,4 +182,8 @@ extension UserCredentials: Identifiable {
     ].map {
         UserCredentials(id: $0.0, name: $0.1, avatarURL: URL(string: $0.2)!, token: $0.3, birthLand: $0.4)
     } + [UserCredentials.guestUser]
+    #else
+    // Релиз: никаких зашитых токенов.
+    static let builtInUsers: [UserCredentials] = []
+    #endif
 }

@@ -82,7 +82,7 @@ enum WoodChatAPI {
     static let base = URL(string: "https://chat.woodstream.online/api/mobile/v1")!
 
     @MainActor static var token: String? {
-        UnsecureRepository.shared.loadCurrentUser()?.apiToken
+        SecureUserRepository.shared.loadCurrentUser()?.apiToken
     }
 
     static func buildRequest(_ path: String, method: String = "GET") async throws -> URLRequest {
@@ -95,7 +95,7 @@ enum WoodChatAPI {
     }
 
     static func runRequest(_ request: URLRequest) async throws -> Data {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await WoodChatNetwork.pinnedSession.data(for: request)
         let code = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200 ..< 300).contains(code) else {
             throw WoodChatAPIError.http(code, String(data: data, encoding: .utf8) ?? "")

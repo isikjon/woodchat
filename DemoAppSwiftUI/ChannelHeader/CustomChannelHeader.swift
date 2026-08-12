@@ -117,7 +117,7 @@ struct CustomChannelModifier: ChannelListHeaderViewModifier {
                     primaryButton: .destructive(Text("Выйти")) {
                         withAnimation {
                             chatClient.logout {
-                                UnsecureRepository.shared.removeCurrentUser()
+                                SecureUserRepository.shared.removeCurrentUser()
                                 DispatchQueue.main.async {
                                     AppState.shared.userState = .notLoggedIn
                                 }

@@ -16,6 +16,10 @@ import SwiftUI
 
     @Injected(\.chatClient) var chatClient
 
+    // Клиентская защита от перебора: растущая задержка после неудач
+    private var failedAttempts = 0
+    private var lockedUntil: Date?
+
     private struct LoginResponse: Decodable {
         struct LoginUser: Decodable {
             let id: String
@@ -42,6 +46,13 @@ import SwiftUI
             return
         }
 
+        // Клиентская пауза после серии неудачных попыток
+        if let lockedUntil, lockedUntil > Date() {
+            let seconds = Int(lockedUntil.timeIntervalSinceNow) + 1
+            errorMessage = "Слишком много попыток. Подождите \(seconds) с."
+            return
+        }
+
         loading = true
         errorMessage = nil
 
@@ -52,13 +63,17 @@ import SwiftUI
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.httpBody = try JSONEncoder().encode(["email": email, "password": password])
 
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await WoodChatNetwork.pinnedSession.data(for: request)
 
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                     loading = false
+                    registerFailedAttempt()
                     errorMessage = "Неверный email или пароль"
                     return
                 }
+
+                failedAttempts = 0
+                lockedUntil = nil
 
                 let result = try JSONDecoder().decode(LoginResponse.self, from: data)
                 let credentials = UserCredentials(
@@ -76,6 +91,15 @@ import SwiftUI
                 errorMessage = "Не удалось подключиться к серверу. Проверьте интернет."
                 log.error("Ошибка входа: \(error)")
             }
+        }
+    }
+
+    /// После 5 неудач подряд включаем паузу (30 с), чтобы усложнить перебор.
+    private func registerFailedAttempt() {
+        failedAttempts += 1
+        if failedAttempts >= 5 {
+            lockedUntil = Date().addingTimeInterval(30)
+            failedAttempts = 0
         }
     }
 
@@ -107,7 +131,7 @@ import SwiftUI
             }
             withAnimation {
                 self?.loading = false
-                UnsecureRepository.shared.save(user: credentials)
+                SecureUserRepository.shared.save(user: credentials)
                 AppState.shared.userState = .loggedIn
             }
         }

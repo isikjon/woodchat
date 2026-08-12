@@ -49,7 +49,7 @@ extension WoodChatAPI {
     /// Загрузка аватара через шлюз чата; ссылка сохраняется в профиле и видна в вебе.
     @MainActor
     static func uploadAvatar(jpegData: Data) async throws -> URL {
-        guard let credentials = UnsecureRepository.shared.loadCurrentUser(),
+        guard let credentials = SecureUserRepository.shared.loadCurrentUser(),
               let url = URL(string: "\(woodChatServerURL)/users/avatar") else {
             throw URLError(.userAuthenticationRequired)
         }
@@ -68,7 +68,7 @@ extension WoodChatAPI {
         body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         request.httpBody = body
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await WoodChatNetwork.pinnedSession.data(for: request)
         guard let http = response as? HTTPURLResponse, (200 ..< 300).contains(http.statusCode) else {
             throw URLError(.badServerResponse)
         }
@@ -78,7 +78,7 @@ extension WoodChatAPI {
         guard let avatarURL = URL(string: decoded.avatar) else { throw URLError(.badServerResponse) }
 
         // Обновляем сохранённую сессию, чтобы аватар сразу показывался в приложении
-        UnsecureRepository.shared.save(user: UserCredentials(
+        SecureUserRepository.shared.save(user: UserCredentials(
             id: credentials.id,
             name: credentials.name,
             avatarURL: avatarURL,
@@ -109,6 +109,7 @@ struct AccountView: View {
     @State private var avatarURL: URL?
     @State private var avatarItem: PhotosPickerItem?
     @State private var avatarUploading = false
+    @ObservedObject private var appLock = AppLockManager.shared
 
     var body: some View {
         NavigationView {
@@ -134,6 +135,15 @@ struct AccountView: View {
                     LabeledContent("Имя", value: name.isEmpty ? "—" : name)
                     LabeledContent("Email", value: email.isEmpty ? "—" : email)
                     LabeledContent("Роль", value: roleTitle)
+                }
+
+                Section {
+                    Toggle("Блокировка входа", isOn: $appLock.isEnabled)
+                        .disabled(!appLock.canUseAuthentication)
+                } footer: {
+                    Text(appLock.canUseAuthentication
+                        ? "Запрашивать Face ID, Touch ID или код при открытии приложения."
+                        : "Недоступно: на устройстве не задан код-пароль.")
                 }
 
                 Section("Заблокированные") {
@@ -184,7 +194,7 @@ struct AccountView: View {
                 Text("Введите пароль для подтверждения. Восстановить аккаунт будет нельзя.")
             }
             .task {
-                avatarURL = UnsecureRepository.shared.loadCurrentUser()?.avatarURL
+                avatarURL = SecureUserRepository.shared.loadCurrentUser()?.avatarURL
                 await load()
             }
             .onChange(of: avatarItem) { newItem in
@@ -274,7 +284,7 @@ struct AccountView: View {
     }
 
     private func logout() {
-        UnsecureRepository.shared.removeCurrentUser()
+        SecureUserRepository.shared.removeCurrentUser()
         chatClient.logout {
             Task { @MainActor in
                 AppState.shared.userState = .notLoggedIn

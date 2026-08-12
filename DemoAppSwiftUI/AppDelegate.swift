@@ -104,7 +104,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         )
         streamChat = StreamChat(chatClient: chatClient, appearance: appearance, utils: utils)
         
-        let credentials = UnsecureRepository.shared.loadCurrentUser()
+        let credentials = SecureUserRepository.shared.loadCurrentUser()
         if let credentials, let token = try? Token(rawValue: credentials.token) {
             chatClient.connectUser(
                 userInfo: .init(
