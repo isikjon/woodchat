@@ -78,9 +78,9 @@ struct DemoAppSwiftUIApp: App {
         }
         .onChange(of: appState.userState) { newValue in
             if newValue == .loggedIn {
-                // Push-уведомления отложены (решение заказчика, 08.2026) —
-                // вернуть вызов при подключении APNs.
-                // notificationsHandler.setupRemoteNotifications()
+                // Запрашиваем разрешение и регистрируем устройство в APNs.
+                // Токен уходит на шлюз через addDevice в AppDelegate.
+                notificationsHandler.setupRemoteNotifications()
             }
         }
         .onChange(of: scenePhase) { phase in

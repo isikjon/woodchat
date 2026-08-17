@@ -160,16 +160,25 @@ test4@woodchat.local / WoodTest2026!4
 
 ---
 
-## 8. Пуш-уведомления (когда понадобятся)
+## 8. Пуш-уведомления — ВКЛЮЧЕНЫ
 
-Сейчас отключены намеренно: бесплатный Apple ID их не поддерживает.
+Настроены 17.08.2026 по ключу APNs заказчика (Key ID 9A9WQKL28K, Team ID Q5CPN332XB).
 
-Чтобы включить после появления платного аккаунта:
-1. В `DemoAppSwiftUI/DemoAppSwiftUI.entitlements` вернуть:
-   `aps-environment` = `development` (и `production` для релиза).
-2. В `DemoAppSwiftUI/DemoAppSwiftUIApp.swift` раскомментировать `notificationsHandler.setupRemoteNotifications()`.
-3. В `DemoAppSwiftUI/AppDelegate.swift` вернуть строку `config.applicationGroupIdentifier = applicationGroupIdentifier` и включить App Groups в Signing & Capabilities.
-4. Создать APNs-ключ в аккаунте разработчика и передать его серверной части — потребуется небольшая доработка на сервере (отправка пушей уже есть для веба).
+**Что сделано:**
+- Ключ `.p8` лежит только на сервере: `/var/www/wood/data/www/stream-gateway/secrets/` (права 600, в git не попадает).
+- Настройки в `.env` шлюза: `APNS_KEY_PATH`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_TOPIC`, `APNS_ENVIRONMENT`.
+- Шлюз: эндпоинты `POST/GET/DELETE /devices` (регистрация устройства из SDK), отправка через APNs HTTP/2 с JWT ES256, автоотключение мёртвых токенов.
+- Пуш уходит участникам беседы, которых нет онлайн (нет открытого WebSocket), кроме самого отправителя. Бейдж — суммарное число непрочитанного.
+- Приложение: `aps-environment = development`, запрос разрешения при входе, регистрация токена через `addDevice(.apn)`.
+
+**Проверено:** Apple принимает ключ и подпись (на выдуманный токен отвечает `BadDeviceToken`, а не отказом в авторизации); сквозной путь сообщение → пуш → очистка мёртвого токена отработал на проде.
+
+**ВАЖНО при переходе на TestFlight/App Store:**
+1. В `DemoAppSwiftUI/DemoAppSwiftUI.entitlements` заменить `development` на `production`.
+2. На сервере в `/var/www/wood/data/www/stream-gateway/.env` поставить `APNS_ENVIRONMENT=production` и перезапустить шлюз.
+Если этого не сделать — пуши на сборки из TestFlight приходить не будут (`BadDeviceToken`).
+
+**Расширение уведомлений (App Groups)** пока не подключено — нужно только для показа картинок в пуше и точного бейджа в фоне. Текст, звук и переход в нужный чат работают без него.
 
 ---
 

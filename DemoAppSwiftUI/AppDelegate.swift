@@ -154,10 +154,9 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                 log.error("adding a device failed with an error \(error)")
                 return
             }
-            UserDefaults(suiteName: applicationGroupIdentifier)?.set(
-                currentUserId,
-                forKey: currentUserIdRegisteredForPush
-            )
+            // App Groups отключены (нужны только для расширения уведомлений),
+            // поэтому пишем в обычные настройки приложения
+            UserDefaults.standard.set(currentUserId, forKey: currentUserIdRegisteredForPush)
         }
     }
 }
