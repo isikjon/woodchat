@@ -52,11 +52,25 @@ public struct MessageAuthorView: View {
         message.author.name ?? message.author.id
     }
     
+    /// Менеджеры и админы компании помечаются галочкой — так в переписке
+    /// сразу видно официального представителя Woodstream.
+    private var isVerifiedStaff: Bool {
+        message.author.userRole == .admin
+    }
+
     public var body: some View {
-        Text(authorName)
-            .lineLimit(1)
-            .font(fonts.footnoteBold)
-            .foregroundColor(usesInvertedStyle ? colors.textOnAccent.toColor : colors.chatTextUsername.toColor)
+        HStack(spacing: 3) {
+            Text(authorName)
+                .lineLimit(1)
+                .font(fonts.footnoteBold)
+                .foregroundColor(usesInvertedStyle ? colors.textOnAccent.toColor : colors.chatTextUsername.toColor)
+            if isVerifiedStaff {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 11))
+                    .foregroundColor(Color(colors.accentPrimary))
+                    .accessibilityLabel("Сотрудник Woodstream")
+            }
+        }
     }
 }
 

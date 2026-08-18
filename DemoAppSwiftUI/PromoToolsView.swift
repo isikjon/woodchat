@@ -4,6 +4,8 @@
 // Экран для менеджеров, повторяет возможности веб-версии.
 //
 
+import StreamChat
+import StreamChatSwiftUI
 import SwiftUI
 
 // MARK: - Модели
@@ -548,5 +550,94 @@ final class PromoToolsViewModel: ObservableObject {
     private func fail(_ message: String) {
         errorMessage = message
         showsError = true
+    }
+}
+
+// MARK: - Профиль упомянутого человека
+
+/// Открывается по нажатию на упоминание в тексте (@Имя). Позволяет сразу
+/// написать человеку личное сообщение — раньше упоминание было просто текстом.
+struct MentionedUserProfileView: View {
+    @Environment(\.presentationMode) private var presentationMode
+    @Injected(\.chatClient) private var chatClient
+
+    let user: ChatUser
+
+    @State private var creating = false
+    @State private var errorMessage: String?
+
+    private var isStaff: Bool {
+        user.userRole == .admin
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer()
+
+            UserAvatar(user: user, size: 96)
+
+            VStack(spacing: 4) {
+                HStack(spacing: 4) {
+                    Text(user.name ?? user.id)
+                        .font(.title3.weight(.semibold))
+                    if isStaff {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
+                Text(isStaff ? "Сотрудник Woodstream" : "Пользователь")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+
+            Button {
+                openDirectChat()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperplane.fill")
+                    Text(creating ? "Открываем…" : "Написать сообщение")
+                }
+                .font(.body.weight(.semibold))
+                .padding(.horizontal, 22)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(creating)
+
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.footnote)
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// Создаём (или находим) личный чат и открываем его в списке чатов.
+    private func openDirectChat() {
+        creating = true
+        errorMessage = nil
+        do {
+            let controller = try chatClient.channelController(createDirectMessageChannelWith: [user.id], extraData: [:])
+            controller.synchronize { error in
+                Task { @MainActor in
+                    creating = false
+                    if error != nil {
+                        errorMessage = "Не удалось открыть чат. Попробуйте ещё раз."
+                        return
+                    }
+                    // Тем же путём, что и переход из уведомления
+                    NotificationsHandler.shared.notificationChannelId = controller.cid?.description
+                    presentationMode.wrappedValue.dismiss()
+                }
+            }
+        } catch {
+            creating = false
+            errorMessage = "Не удалось открыть чат"
+        }
     }
 }

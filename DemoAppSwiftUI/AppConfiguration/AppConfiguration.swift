@@ -18,7 +18,8 @@ final class AppConfiguration {
     /// Reactions display style in the message list (clustered vs segmented).
     var reactionsStyle: ReactionsStyle = .segmented
     /// Reactions placement relative to the message (top or bottom).
-    var reactionsPlacement: ReactionsPlacement = .top
+    /// Реакции снизу пузыря — привычнее, как в Telegram
+    var reactionsPlacement: ReactionsPlacement = .bottom
     /// The visual style used across the app (regular or liquid glass).
     var appStyle: AppStyle = .regular
 

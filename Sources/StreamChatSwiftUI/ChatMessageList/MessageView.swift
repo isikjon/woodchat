@@ -294,8 +294,13 @@ public struct LinkDetectionTextView: View {
         // Links and mentions
         if utils.messageListConfig.localLinkDetectionEnabled {
             for user in message.mentionedUsers {
-                let mention = "@\(user.name ?? user.id)"
-                let ranges = attributedString.ranges(of: mention, options: [.caseInsensitive])
+                // Помимо имени ищем ник, которым человека упомянули в тексте
+                // (например @AnnaWoodstream в постах из Telegram)
+                var mentions = ["@\(user.name ?? user.id)"]
+                if let handle = user.extraData["mention_handle"]?.stringValue, !handle.isEmpty {
+                    mentions.insert("@\(handle)", at: 0)
+                }
+                let ranges = mentions.flatMap { attributedString.ranges(of: $0, options: [.caseInsensitive]) }
                 for range in ranges {
                     if let messageId = message.messageId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
                        let url = URL(string: "getstream://mention/\(messageId)/\(user.id)") {

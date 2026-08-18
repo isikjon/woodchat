@@ -61,7 +61,7 @@ public struct MessageMediaAttachmentsContainerView<Factory: ViewFactory>: View {
     @State private var selectedIndex = 0
     private var spacing: CGFloat { tokens.spacingXxxs }
     private var cornerRadius: CGFloat { tokens.messageBubbleRadiusAttachment }
-    private let maxDisplayedItems = 4
+    private let maxDisplayedItems = 10
 
     public init(
         factory: Factory,
@@ -108,10 +108,35 @@ public struct MessageMediaAttachmentsContainerView<Factory: ViewFactory>: View {
             case 3:
                 threeItemLayout(items, size: size)
             default:
-                fourPlusItemLayout(items, size: size)
+                mosaicLayout(Array(items.prefix(maxDisplayedItems)))
             }
         }
-        .frame(width: size.width, height: size.height)
+        .frame(width: size.width, height: items.count > 3 ? nil : size.height)
+    }
+
+    /**
+     Мозаика как в Telegram: снимки раскладываются по рядам, в каждом ряду
+     высота общая, а ширина пропорциональна кадру. Так альбом показывается
+     целиком и ничего не режется в квадрат.
+     */
+    @ViewBuilder
+    private func mosaicLayout(_ items: [MediaAttachment]) -> some View {
+        let rows = MediaMosaicPlanner.rows(for: items, containerWidth: width, spacing: spacing)
+        VStack(spacing: spacing) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+                HStack(spacing: spacing) {
+                    ForEach(Array(row.cells.enumerated()), id: \.offset) { cellIndex, cell in
+                        let isLast = rowIndex == rows.count - 1 && cellIndex == row.cells.count - 1
+                        if isLast && remainingCount > 0 {
+                            overflowCell(cell.item, width: cell.width, height: row.height, index: cell.index)
+                        } else {
+                            mediaCell(cell.item, width: cell.width, height: row.height, index: cell.index)
+                        }
+                    }
+                }
+            }
+        }
+        .frame(width: width)
     }
 
     private func singleItemLayout(
@@ -295,5 +320,84 @@ public struct MessageMediaAttachmentsContainerView<Factory: ViewFactory>: View {
 
     private var remainingCount: Int {
         max(sources.count - maxDisplayedItems, 0)
+    }
+}
+
+// MARK: - Планировщик мозаики
+
+/// Раскладка альбома по рядам: в ряду кадры одной высоты, ширина — по пропорциям.
+/// Логика близка к Telegram: 2–3 кадра в ряду, панорамы и очень вытянутые
+/// снимки занимают ряд целиком.
+enum MediaMosaicPlanner {
+    struct Cell {
+        let item: MediaAttachment
+        let index: Int
+        let width: CGFloat
+    }
+
+    struct Row {
+        let cells: [Cell]
+        let height: CGFloat
+    }
+
+    /// Пропорции кадра; если сервер их не прислал, считаем снимок квадратным.
+    private static func ratio(_ item: MediaAttachment) -> CGFloat {
+        guard let width = item.originalWidth, let height = item.originalHeight,
+              width > 0, height > 0 else {
+            return 1
+        }
+        // Слишком вытянутые кадры ограничиваем, иначе ряд становится нитью
+        return min(max(CGFloat(width / height), 0.5), 2.5)
+    }
+
+    static func rows(for items: [MediaAttachment], containerWidth: CGFloat, spacing: CGFloat) -> [Row] {
+        guard !items.isEmpty, containerWidth > 0 else { return [] }
+
+        let ratios = items.map(ratio)
+        let groups = groupIndices(ratios: ratios)
+
+        return groups.map { group in
+            let groupRatios = group.map { ratios[$0] }
+            let sum = groupRatios.reduce(0, +)
+            let available = containerWidth - spacing * CGFloat(group.count - 1)
+            // Общая высота ряда: при ней суммарная ширина кадров равна доступной
+            let height = (available / max(sum, 0.01)).rounded()
+            let cells = group.map { index in
+                Cell(item: items[index], index: index, width: (ratios[index] * height).rounded())
+            }
+            return Row(cells: cells, height: height)
+        }
+    }
+
+    /// Разбивка на ряды: широкие кадры ставим по два, узкие — по три.
+    private static func groupIndices(ratios: [CGFloat]) -> [[Int]] {
+        var groups: [[Int]] = []
+        var current: [Int] = []
+
+        func flush() {
+            if !current.isEmpty {
+                groups.append(current)
+                current = []
+            }
+        }
+
+        for index in ratios.indices {
+            current.append(index)
+            let widthSum = current.map { ratios[$0] }.reduce(0, +)
+            // Ряд закрываем, когда кадры вместе стали достаточно широкими
+            let enough = current.count >= 3 || widthSum >= 2.2
+            if enough {
+                flush()
+            }
+        }
+        flush()
+
+        // Одинокий кадр в последнем ряду приклеиваем к предыдущему, если там место
+        if groups.count > 1, let last = groups.last, last.count == 1, groups[groups.count - 2].count < 3 {
+            let lonely = groups.removeLast()
+            groups[groups.count - 1].append(contentsOf: lonely)
+        }
+
+        return groups
     }
 }
