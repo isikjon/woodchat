@@ -25,6 +25,32 @@ class DemoAppFactory: ViewFactory {
     func makeMessageListBackground(options: MessageListBackgroundOptions) -> some View {
         WCChatBackgroundView()
     }
+
+    /// В канале анонсов писать могут только менеджеры — как и в веб-версии.
+    /// Остальным вместо поля ввода показываем подсказку, чтобы сообщение
+    /// не уходило на сервер и не возвращалось ошибкой.
+    @ViewBuilder
+    func makeMessageComposerViewType(
+        options: MessageComposerViewTypeOptions
+    ) -> some View {
+        let channel = options.channelController.channel
+        let isBroadcast = (channel?.extraData["woodchat_broadcast"]?.boolValue ?? false)
+            || (channel?.extraData["woodchat_type"]?.stringValue == "broadcast")
+        let isManager = SecureUserRepository.shared.loadCurrentUser()?.isManager == true
+
+        if isBroadcast && !isManager {
+            BroadcastReadOnlyNotice()
+        } else {
+            MessageComposerView(
+                viewFactory: self,
+                channelController: options.channelController,
+                messageController: options.messageController,
+                quotedMessage: options.quotedMessage,
+                editedMessage: options.editedMessage,
+                onMessageSent: options.onMessageSent
+            )
+        }
+    }
     
     func supportedMoreChannelActions(
         options: SupportedMoreChannelActionsOptions

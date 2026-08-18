@@ -192,3 +192,25 @@ struct ChatBackgroundsCatalogView: View {
         }
     }
 }
+
+// MARK: - Подсказка вместо поля ввода в канале анонсов
+
+/// Показывается сотрудникам в мегагруппе анонсов: писать в неё могут только
+/// менеджеры, комментировать публикации — все (ответом на публикацию).
+struct BroadcastReadOnlyNotice: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "megaphone")
+                .foregroundColor(.secondary)
+            Text("Только для анонсов компании. Чтобы обсудить публикацию, ответьте на неё.")
+                .font(.footnote)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        .background(Color(UIColor.secondarySystemBackground))
+    }
+}

@@ -3,6 +3,7 @@
 //
 
 import Photos
+import PhotosUI
 import StreamChat
 import StreamChatCommonUI
 import SwiftUI
@@ -63,6 +64,26 @@ public struct AttachmentMediaPickerView: View {
 
     private func assetGridContent(collection: PHFetchResultCollection) -> some View {
         ScrollView {
+            // Доступ «к выбранным фото»: без этой кнопки новые снимки в приложение
+            // не добавить — в списке навсегда остаётся старая выборка
+            if PHPhotoLibrary.authorizationStatus(for: .readWrite) == .limited {
+                Button {
+                    presentLimitedLibraryPicker()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "photo.badge.plus")
+                        Text("Разрешён доступ только к выбранным фото. Нажмите, чтобы добавить ещё.")
+                            .font(.footnote)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
+                }
+                .buttonStyle(.plain)
+            }
+
             LazyVGrid(columns: columns, spacing: 2) {
                 ForEach(collection) { asset in
                     AttachmentMediaPickerItemView(
@@ -76,6 +97,20 @@ public struct AttachmentMediaPickerView: View {
             }
             .animation(nil)
         }
+    }
+
+    /// Открывает системный экран выбора доступных приложению фотографий.
+    private func presentLimitedLibraryPicker() {
+        guard let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
+            let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController else {
+            return
+        }
+        var presenter = root
+        while let presented = presenter.presentedViewController {
+            presenter = presented
+        }
+        PHPhotoLibrary.shared().presentLimitedLibraryPicker(from: presenter)
     }
 
     private var accessDeniedContent: some View {
