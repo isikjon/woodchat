@@ -45,6 +45,8 @@ struct DemoAppSwiftUIApp: App {
                            SecureUserRepository.shared.loadCurrentUser()?.isManager == true {
                             PublicationsView()
                                 .tabItem { Label("Анонсы", systemImage: "megaphone") }
+                            PromoToolsView()
+                                .tabItem { Label("Промо", systemImage: "ticket") }
                         }
                     }
                     .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
