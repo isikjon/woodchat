@@ -7,6 +7,7 @@ import SwiftUI
 
 struct LoginView: View {
     @StateObject var viewModel = LoginViewModel()
+    @State private var showsRegistration = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,6 +55,15 @@ struct LoginView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(viewModel.loading)
+
+                Button {
+                    showsRegistration = true
+                } label: {
+                    Text("Создать учётную запись")
+                        .font(.subheadline)
+                }
+                .disabled(viewModel.loading)
+                .padding(.top, 4)
             }
             .padding(.horizontal, 32)
 
@@ -65,6 +75,9 @@ struct LoginView: View {
         )
         .sheet(isPresented: $viewModel.showsConfiguration) {
             AppConfigurationView()
+        }
+        .sheet(isPresented: $showsRegistration) {
+            RegisterView()
         }
         .onAppear {
             #if DEBUG
