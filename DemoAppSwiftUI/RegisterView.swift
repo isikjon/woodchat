@@ -10,7 +10,6 @@ import SwiftUI
     @Published var name = ""
     @Published var email = ""
     @Published var password = ""
-    @Published var inviteCode = ""
     @Published var loading = false
     @Published var errorMessage: String?
 
@@ -58,11 +57,7 @@ import SwiftUI
 
         Task {
             do {
-                var body: [String: String] = ["name": name, "email": email, "password": password]
-                let code = inviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
-                if !code.isEmpty {
-                    body["invite_code"] = code
-                }
+                let body = ["name": name, "email": email, "password": password]
 
                 var request = URLRequest(url: URL(string: "\(woodChatServerURL)/auth/register")!)
                 request.httpMethod = "POST"
@@ -170,18 +165,6 @@ struct RegisterView: View {
                         .padding(12)
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(10)
-
-                    TextField("Код приглашения", text: $viewModel.inviteCode)
-                        .autocapitalization(.allCharacters)
-                        .autocorrectionDisabled()
-                        .padding(12)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(10)
-
-                    Text("Код приглашения выдаёт менеджер Woodstream.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     if let error = viewModel.errorMessage {
                         Text(error)
