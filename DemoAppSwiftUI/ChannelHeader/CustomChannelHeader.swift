@@ -23,20 +23,22 @@ public struct CustomChannelHeader: ToolbarContent {
                 .font(fonts.bodyBold)
         }
         ToolbarItem(placement: .navigationBarTrailing) {
-            Button {
-                isNewChatShown = true
-                notifyHideTabBar()
-            } label: {
-                Image(uiImage: images.messageActionEdit)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 24, height: 24)
-                    .foregroundColor(Color(colors.navigationBarGlyph))
-                    .padding(.all, 8)
-                    .background(Color(colors.navigationBarTintColor))
-                    .clipShape(Circle())
+            if SecureUserRepository.shared.loadCurrentUser()?.isManager == true {
+                Button {
+                    isNewChatShown = true
+                    notifyHideTabBar()
+                } label: {
+                    Image(uiImage: images.messageActionEdit)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                        .foregroundColor(Color(colors.navigationBarGlyph))
+                        .padding(.all, 8)
+                        .background(Color(colors.navigationBarTintColor))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel(Text("Новый чат"))
             }
-            .accessibilityLabel(Text("Новый чат"))
         }
         ToolbarItem(placement: .navigationBarLeading) {
             Button {

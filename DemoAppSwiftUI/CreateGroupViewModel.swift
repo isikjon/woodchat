@@ -27,12 +27,10 @@ import SwiftUI
 
     private lazy var searchController: ChatUserSearchController = chatClient.userSearchController()
     private let lastSeenDateFormatter = DateUtils.timeAgo
+    private var searchGeneration = 0
 
     init() {
-        chatUsers = searchController.userArray
         searchController.delegate = self
-        // Empty initial search to get all users
-        searchUsers(with: nil)
     }
 
     var canCreateGroup: Bool {
@@ -93,19 +91,44 @@ import SwiftUI
         _ controller: ChatUserSearchController,
         didChangeUsers changes: [ListChange<ChatUser>]
     ) {
+        guard controller === searchController else { return }
+        guard normalizedSearchTerm.count >= 2 else {
+            chatUsers = []
+            state = .initial
+            return
+        }
         chatUsers = controller.userArray
     }
 
     // MARK: - private
 
     private func searchUsers(with term: String?) {
+        let normalized = term?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        searchGeneration += 1
+        let generation = searchGeneration
+        searchController.delegate = nil
+
+        guard normalized.count >= 2 else {
+            chatUsers = []
+            state = .initial
+            return
+        }
+
         state = .loading
-        searchController.search(term: term) { [weak self] error in
+        searchController = chatClient.userSearchController()
+        searchController.delegate = self
+        searchController.search(term: normalized) { [weak self] error in
+            guard let self, generation == self.searchGeneration else { return }
             if error != nil {
-                self?.state = .error
+                self.state = .error
             } else {
-                self?.state = .loaded
+                self.chatUsers = self.searchController.userArray
+                self.state = self.chatUsers.isEmpty ? .noUsers : .loaded
             }
         }
+    }
+
+    private var normalizedSearchTerm: String {
+        searchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

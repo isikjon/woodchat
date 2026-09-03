@@ -11,8 +11,6 @@ class DemoAppFactory: ViewFactory {
 
     private init() {}
     
-    private var mentionsHandler = MentionsHandler()
-
     public static let shared = DemoAppFactory()
     
     public var styles = DemoAppStyles()
@@ -26,9 +24,9 @@ class DemoAppFactory: ViewFactory {
         WCChatBackgroundView()
     }
 
-    /// В канале анонсов писать могут только менеджеры — как и в веб-версии.
-    /// Остальным вместо поля ввода показываем подсказку, чтобы сообщение
-    /// не уходило на сервер и не возвращалось ошибкой.
+    /// В канале анонсов писать могут только менеджеры. Обычным пользователям
+    /// композер открывается после выбора «Ответить» у публикации: шлюз сохранит
+    /// сообщение как комментарий к ней.
     @ViewBuilder
     func makeMessageComposerViewType(
         options: MessageComposerViewTypeOptions
@@ -38,7 +36,7 @@ class DemoAppFactory: ViewFactory {
             || (channel?.extraData["woodchat_type"]?.stringValue == "broadcast")
         let isManager = SecureUserRepository.shared.loadCurrentUser()?.isManager == true
 
-        if isBroadcast && !isManager {
+        if isBroadcast && !isManager && options.quotedMessage.wrappedValue == nil {
             BroadcastReadOnlyNotice()
         } else {
             MessageComposerView(
@@ -104,10 +102,6 @@ class DemoAppFactory: ViewFactory {
             trailingLeftButtonTapped: trailingSwipeLeftButtonTapped,
             leadingSwipeButtonTapped: leadingSwipeButtonTapped
         )
-    }
-    
-    public func makeMessageViewModifier(for messageModifierInfo: MessageModifierInfo) -> some ViewModifier {
-        ShowProfileModifier(messageModifierInfo: messageModifierInfo, mentionsHandler: mentionsHandler)
     }
     
     private func archiveChannelAction(
@@ -212,21 +206,12 @@ struct ProfileURLModifier: ViewModifier {
     func body(content: Content) -> some View {
         if !messageModifierInfo.message.mentionedUsers.isEmpty {
             content
-                .onOpenURL(perform: { url in
-                    if url.absoluteString.contains("getstream://mention")
-                        && url.pathComponents.count > 2
-                        && messageModifierInfo.message.scrollMessageId == url.pathComponents[1]
-                        && (mentionsHandler.selectedUser?.id != url.pathComponents[2] || !showProfile) {
-                        let userId = url.pathComponents[2]
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            if mentionsHandler.selectedUser == nil {
-                                let user = messageModifierInfo.message.mentionedUsers.first(where: { $0.id == userId })
-                                mentionsHandler.selectedUser = user
-                                showProfile = true
-                            }
-                        }
-                    }
+                .environment(\.openURL, OpenURLAction { url in
+                    openMention(url) ? .handled : .systemAction
                 })
+                .onOpenURL { url in
+                    _ = openMention(url)
+                }
                 .sheet(isPresented: $showProfile, onDismiss: {
                     mentionsHandler.selectedUser = nil
                 }, content: {
@@ -237,6 +222,20 @@ struct ProfileURLModifier: ViewModifier {
         } else {
             content
         }
+    }
+
+    private func openMention(_ url: URL) -> Bool {
+        guard url.scheme == "getstream",
+              url.host == "mention",
+              url.pathComponents.count == 3,
+              messageModifierInfo.message.scrollMessageId == url.pathComponents[1],
+              let user = messageModifierInfo.message.mentionedUsers.first(where: { $0.id == url.pathComponents[2] }) else {
+            return false
+        }
+
+        mentionsHandler.selectedUser = user
+        showProfile = true
+        return true
     }
 }
 
@@ -256,6 +255,7 @@ struct CustomChannelDestination: View {
 /// at runtime based on the current `AppConfiguration.appStyle`.
 class DemoAppStyles: Styles {
     @Injected(\.tokens) var tokens
+    private let mentionsHandler = MentionsHandler()
 
     var composerPlacement: ComposerPlacement {
         get { isLiquidGlass ? .floating : .docked }
@@ -264,6 +264,10 @@ class DemoAppStyles: Styles {
 
     private var isLiquidGlass: Bool {
         AppConfiguration.default.appStyle == .liquidGlass
+    }
+
+    func makeMessageViewModifier(for messageModifierInfo: MessageModifierInfo) -> some ViewModifier {
+        ShowProfileModifier(messageModifierInfo: messageModifierInfo, mentionsHandler: mentionsHandler)
     }
 
     func makeComposerInputViewModifier(options: ComposerInputModifierOptions) -> some ViewModifier {

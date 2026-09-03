@@ -48,10 +48,18 @@ struct NewChatView: View, KeyboardReadable {
 
             if viewModel.state != .channel {
                 CreateGroupButton(isNewChatShown: $isNewChatShown)
-                UsersHeaderView()
+                UsersHeaderView(title: "Результаты поиска")
             }
 
-            if viewModel.state == .loading {
+            if viewModel.state == .initial {
+                VerticallyCenteredView {
+                    Text("Введите не менее 2 символов имени")
+                        .font(.title3)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(Color(colors.textLowEmphasis))
+                        .padding(.horizontal, 24)
+                }
+            } else if viewModel.state == .loading {
                 VerticallyCenteredView {
                     ProgressView()
                 }
@@ -75,13 +83,13 @@ struct NewChatView: View, KeyboardReadable {
                 .listStyle(.plain)
             } else if viewModel.state == .noUsers {
                 VerticallyCenteredView {
-                    Text("No user matches these keywords")
+                    Text("Никого не найдено")
                         .font(.title2)
                         .foregroundColor(Color(colors.textLowEmphasis))
                 }
             } else if viewModel.state == .error {
                 VerticallyCenteredView {
-                    Text("Error loading the users")
+                    Text("Не удалось выполнить поиск")
                         .font(.title2)
                         .foregroundColor(Color(colors.textLowEmphasis))
                 }

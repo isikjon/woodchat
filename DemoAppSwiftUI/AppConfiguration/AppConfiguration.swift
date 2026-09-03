@@ -43,7 +43,11 @@ final class AppConfiguration {
                 message.extraData["ai_generated"]?.boolValue == true
             },
             draftMessagesEnabled: true,
-            downloadFileAttachmentsEnabled: true
+            downloadFileAttachmentsEnabled: true,
+            supportedMessageActions: { options in
+                // WoodChat хранит ответы как цитаты в общей переписке, не как Stream threads.
+                MessageAction.defaultActions(for: options).filter { $0.id != MessageActionId.threadReply }
+            }
         )
     }
 }

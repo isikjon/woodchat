@@ -570,6 +570,11 @@ struct MentionedUserProfileView: View {
         user.userRole == .admin
     }
 
+    private var canMessage: Bool {
+        user.id != chatClient.currentUserId
+            && (isStaff || SecureUserRepository.shared.loadCurrentUser()?.isManager == true)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
             Spacer()
@@ -590,19 +595,21 @@ struct MentionedUserProfileView: View {
                     .foregroundColor(.secondary)
             }
 
-            Button {
-                openDirectChat()
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "paperplane.fill")
-                    Text(creating ? "Открываем…" : "Написать сообщение")
+            if canMessage {
+                Button {
+                    openDirectChat()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "paperplane.fill")
+                        Text(creating ? "Открываем…" : "Написать сообщение")
+                    }
+                    .font(.body.weight(.semibold))
+                    .padding(.horizontal, 22)
+                    .padding(.vertical, 12)
                 }
-                .font(.body.weight(.semibold))
-                .padding(.horizontal, 22)
-                .padding(.vertical, 12)
+                .buttonStyle(.borderedProminent)
+                .disabled(creating)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(creating)
 
             if let errorMessage {
                 Text(errorMessage)

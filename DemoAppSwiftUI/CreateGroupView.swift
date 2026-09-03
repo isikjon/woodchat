@@ -33,21 +33,47 @@ struct CreateGroupView: View, KeyboardReadable {
                 .padding(.all, !viewModel.selectedUsers.isEmpty ? 16 : 0)
             }
 
-            UsersHeaderView()
-            List(viewModel.chatUsers) { user in
-                Button {
-                    withAnimation {
-                        viewModel.userTapped(user)
+            UsersHeaderView(title: "Результаты поиска")
+            if viewModel.state == .initial {
+                VerticallyCenteredView {
+                    Text("Введите не менее 2 символов имени")
+                        .font(.title3)
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(Color(colors.textLowEmphasis))
+                        .padding(.horizontal, 24)
+                }
+            } else if viewModel.state == .loading {
+                VerticallyCenteredView {
+                    ProgressView()
+                }
+            } else if viewModel.state == .loaded {
+                List(viewModel.chatUsers) { user in
+                    Button {
+                        withAnimation {
+                            viewModel.userTapped(user)
+                        }
+                    } label: {
+                        ChatUserView(
+                            user: user,
+                            onlineText: viewModel.onlineInfo(for: user),
+                            isSelected: viewModel.isSelected(user: user)
+                        )
                     }
-                } label: {
-                    ChatUserView(
-                        user: user,
-                        onlineText: viewModel.onlineInfo(for: user),
-                        isSelected: viewModel.isSelected(user: user)
-                    )
+                }
+                .listStyle(.plain)
+            } else if viewModel.state == .noUsers {
+                VerticallyCenteredView {
+                    Text("Никого не найдено")
+                        .font(.title2)
+                        .foregroundColor(Color(colors.textLowEmphasis))
+                }
+            } else if viewModel.state == .error {
+                VerticallyCenteredView {
+                    Text("Не удалось выполнить поиск")
+                        .font(.title2)
+                        .foregroundColor(Color(colors.textLowEmphasis))
                 }
             }
-            .listStyle(.plain)
         }
         .toolbarThemed(content: {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -122,7 +148,7 @@ struct SearchBar: View {
 
     var body: some View {
         HStack {
-            TextField("Search ...", text: $text)
+            TextField("Введите имя", text: $text)
                 .padding(7)
                 .padding(.horizontal, 25)
                 .background(Color(colors.background1))
