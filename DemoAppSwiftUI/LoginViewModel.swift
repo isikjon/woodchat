@@ -113,8 +113,12 @@ import SwiftUI
     }
 
     private func connectUser(withCredentials credentials: UserCredentials) {
+        guard let token = try? Token(rawValue: credentials.token) else {
+            loading = false
+            errorMessage = "Сервер вернул некорректный токен"
+            return
+        }
         loading = true
-        let token = try! Token(rawValue: credentials.token)
 
         chatClient.connectUser(
             userInfo: .init(
@@ -127,6 +131,8 @@ import SwiftUI
         ) { [weak self] error in
             if let error {
                 log.error("connecting the user failed \(error)")
+                self?.loading = false
+                self?.errorMessage = "Не удалось подключиться к серверу. Попробуйте ещё раз."
                 return
             }
             withAnimation {
@@ -145,6 +151,8 @@ import SwiftUI
         ) { [weak self] error in
             if let error {
                 log.error("connecting the user failed \(error)")
+                self?.loading = false
+                self?.errorMessage = "Не удалось подключиться к серверу. Попробуйте ещё раз."
                 return
             }
             withAnimation {
