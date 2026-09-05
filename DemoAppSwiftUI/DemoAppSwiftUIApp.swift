@@ -45,8 +45,14 @@ struct DemoAppSwiftUIApp: App {
                            SecureUserRepository.shared.loadCurrentUser()?.isManager == true {
                             PublicationsView()
                                 .tabItem { Label("Анонсы", systemImage: "megaphone") }
-                            PromoToolsView()
-                                .tabItem { Label("Промо", systemImage: "ticket") }
+                            // Временно скрыто на период App Review (05.09.2026): чтобы не
+                            // провоцировать повторный вопрос про платный контент (2.1b),
+                            // как в отклонении от 04.09.2026. Код не удалён — вернуть
+                            // показом FeatureFlags.promoToolsTabVisible = true.
+                            if FeatureFlags.promoToolsTabVisible {
+                                PromoToolsView()
+                                    .tabItem { Label("Промо", systemImage: "ticket") }
+                            }
                         }
                     }
                     .environment(\.layoutDirection, appConfig.forceRTL ? .rightToLeft : .leftToRight)
