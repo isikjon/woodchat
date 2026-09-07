@@ -16,6 +16,15 @@ import SwiftUI
         }
     }
 
+    /// Выбор причины жалобы: показывается вместо простого подтверждения.
+    @Published public var reasonAction: MessageAction? {
+        didSet {
+            reasonShown = reasonAction != nil
+        }
+    }
+
+    @Published public var reasonShown = false
+
     public init(messageActions: [MessageAction]) {
         self.messageActions = messageActions
     }
@@ -31,6 +40,10 @@ public final class MessageAction: Identifiable, Equatable {
     public let confirmationPopup: ConfirmationPopup?
     public let isDestructive: Bool
     public var navigationDestination: AnyView?
+    /// Варианты причины: вместо подтверждения показывается их список.
+    public let reasonOptions: [String]
+    /// Вызывается с выбранной причиной (для жалоб — уходит на сервер).
+    public let reasonAction: (@MainActor (String) -> Void)?
 
     public init(
         id: String = UUID().uuidString,
@@ -38,7 +51,9 @@ public final class MessageAction: Identifiable, Equatable {
         iconName: String,
         action: @escaping @MainActor () -> Void,
         confirmationPopup: ConfirmationPopup?,
-        isDestructive: Bool
+        isDestructive: Bool,
+        reasonOptions: [String] = [],
+        reasonAction: (@MainActor (String) -> Void)? = nil
     ) {
         self.id = id
         self.title = title
@@ -46,6 +61,8 @@ public final class MessageAction: Identifiable, Equatable {
         self.action = action
         self.confirmationPopup = confirmationPopup
         self.isDestructive = isDestructive
+        self.reasonOptions = reasonOptions
+        self.reasonAction = reasonAction
     }
 
     public static func == (lhs: MessageAction, rhs: MessageAction) -> Bool {

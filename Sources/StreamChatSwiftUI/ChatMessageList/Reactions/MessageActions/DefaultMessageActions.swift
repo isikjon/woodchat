@@ -466,11 +466,14 @@ public extension MessageAction {
             messageId: message.id
         )
 
-        let flagAction: @MainActor () -> Void = {
-            messageController.flag { error in
+        // Причина уходит на сервер и видна менеджеру в админке, а после
+        // отправки показываем подтверждение: раньше жалоба уходила молча
+        let send: @MainActor (String?) -> Void = { reason in
+            messageController.flag(reason: reason) { error in
                 if let error {
                     onError(error)
                 } else {
+                    NotificationCenter.default.post(name: .woodchatReportSent, object: nil)
                     onFinish(
                         MessageActionInfo(
                             message: message,
@@ -481,19 +484,20 @@ public extension MessageAction {
             }
         }
 
-        let confirmationPopup = ConfirmationPopup(
-            title: L10n.Message.Actions.Flag.confirmationTitle,
-            message: L10n.Message.Actions.Flag.confirmationMessage,
-            buttonTitle: L10n.Message.Actions.flag
-        )
-
         let flagMessage = MessageAction(
             id: MessageActionId.flag,
             title: L10n.Message.Actions.flag,
             iconName: "flag",
-            action: flagAction,
-            confirmationPopup: confirmationPopup,
-            isDestructive: false
+            action: { send(nil) },
+            confirmationPopup: nil,
+            isDestructive: false,
+            reasonOptions: [
+                "Спам или реклама",
+                "Оскорбления",
+                "Мошенничество",
+                "Другое",
+            ],
+            reasonAction: { reason in send(reason) }
         )
 
         return flagMessage

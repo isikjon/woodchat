@@ -95,6 +95,14 @@ extension WoodChatAPI {
 
 @available(iOS 16.0, *)
 struct AccountView: View {
+    /// Версия и номер сборки из Info.plist: «1.0 (6)».
+    static var appVersion: String {
+        let info = Bundle.main.infoDictionary
+        let version = info?["CFBundleShortVersionString"] as? String ?? "—"
+        let build = info?["CFBundleVersion"] as? String ?? "—"
+        return "\(version) (\(build))"
+    }
+
     @Environment(\.dismiss) private var dismiss
     @Injected(\.chatClient) private var chatClient
 
@@ -135,6 +143,9 @@ struct AccountView: View {
                     LabeledContent("Имя", value: name.isEmpty ? "—" : name)
                     LabeledContent("Email", value: email.isEmpty ? "—" : email)
                     LabeledContent("Роль", value: roleTitle)
+                    // Без номера сборки нельзя понять, стоит ли у человека
+                    // свежая версия — заказчик спрашивал об этом отдельно
+                    LabeledContent("Версия", value: Self.appVersion)
                 }
 
                 Section {

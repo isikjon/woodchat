@@ -5,6 +5,9 @@
 import SwiftUI
 
 /// View for the message actions.
+/// Кнопка листа выбора: длинное имя типа не помещается в замыкание построителя.
+private typealias ActionSheetButton = ActionSheet.Button
+
 public struct MessageActionsView: View {
     @Injected(\.colors) private var colors
 
@@ -40,7 +43,9 @@ public struct MessageActionsView: View {
                         }
                     } else {
                         Button {
-                            if action.confirmationPopup != nil {
+                            if !action.reasonOptions.isEmpty {
+                                viewModel.reasonAction = action
+                            } else if action.confirmationPopup != nil {
                                 viewModel.alertAction = action
                             } else {
                                 action.action()
@@ -78,6 +83,16 @@ public struct MessageActionsView: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+        // Причина уходит вместе с жалобой: менеджер видит её в админке.
+        // actionSheet, а не confirmationDialog: приложение поддерживает iOS 14
+        .actionSheet(isPresented: $viewModel.reasonShown) {
+            let action = viewModel.reasonAction
+            var buttons: [ActionSheetButton] = (action?.reasonOptions ?? []).map { reason in
+                .default(Text(reason)) { action?.reasonAction?(reason) }
+            }
+            buttons.append(.cancel(Text(L10n.Alert.Actions.cancel)))
+            return ActionSheet(title: Text(action?.title ?? ""), buttons: buttons)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("MessageActionsView")

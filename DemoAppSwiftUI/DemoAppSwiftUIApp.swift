@@ -18,6 +18,7 @@ struct DemoAppSwiftUIApp: App {
     @ObservedObject var appLock = AppLockManager.shared
 
     @Environment(\.scenePhase) private var scenePhase
+    @State private var reportSentShown = false
     @State private var jailbreakWarningShown = false
 
     var channelListController: ChatChannelListController? {
@@ -68,6 +69,14 @@ struct DemoAppSwiftUIApp: App {
                 if appLock.isLocked, appState.userState == .loggedIn {
                     AppLockOverlay()
                 }
+            }
+            .alert("Жалоба отправлена", isPresented: $reportSentShown) {
+                Button("Понятно", role: .cancel) {}
+            } message: {
+                Text("Менеджер увидит её в панели управления и разберётся.")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .woodchatReportSent)) { _ in
+                reportSentShown = true
             }
             .alert("Небезопасное устройство", isPresented: $jailbreakWarningShown) {
                 Button("Понятно", role: .cancel) {}
