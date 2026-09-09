@@ -172,7 +172,8 @@ import SwiftUI
             channelDataSource = ChatChannelDataSource(controller: channelController)
         }
         channelDataSource.delegate = self
-        messages = channelDataSource.messages
+        messages = visibleMessages(channelDataSource.messages)
+        subscribeToBlockChanges()
         channel = channelController.channel
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -486,10 +487,10 @@ import SwiftUI
         
         if shouldAnimate(changes: changes) {
             withAnimation {
-                self.messages = messages
+                self.messages = visibleMessages(messages)
             }
         } else {
-            self.messages = messages
+            self.messages = visibleMessages(messages)
         }
         
         refreshMessageListIfNeeded()
@@ -561,7 +562,7 @@ import SwiftUI
     @objc public func onViewAppear() {
         utils.originalTranslationsStore.clear()
         setActive()
-        messages = channelDataSource.messages
+        messages = visibleMessages(channelDataSource.messages)
         firstUnreadMessageId = channelDataSource.firstUnreadMessageId
         checkNameChange()
     }
@@ -664,7 +665,7 @@ import SwiftUI
                 return
             }
             if readsString != newReadsString && isActive {
-                messages = channelDataSource.messages
+                messages = visibleMessages(channelDataSource.messages)
                 readsString = newReadsString
             }
         default:
@@ -867,6 +868,34 @@ import SwiftUI
                 if !channelDataSource.hasLoadedAllNextMessages {
                     channelDataSource.loadFirstPage { _ in }
                 }
+            }
+        }
+    }
+}
+
+extension ChatChannelViewModel {
+    /// Сообщения заблокированных пользователей не показываем: по правилам
+    /// App Review (1.2) контент нарушителя обязан исчезать сразу после блокировки.
+    func visibleMessages(_ source: [ChatMessage]) -> [ChatMessage] {
+        let blocked = blockedUserIds
+        guard !blocked.isEmpty else { return source }
+        return source.filter { !blocked.contains($0.author.id) }
+    }
+
+    var blockedUserIds: Set<UserId> {
+        chatClient.currentUserController().currentUser?.blockedUserIds ?? []
+    }
+
+    /// После блокировки список перечитывается, и сообщения пропадают без перезахода.
+    func subscribeToBlockChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .woodchatBlockChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                self.messages = self.visibleMessages(self.channelDataSource.messages)
             }
         }
     }

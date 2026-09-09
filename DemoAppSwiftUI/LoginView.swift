@@ -64,6 +64,9 @@ struct LoginView: View {
                 }
                 .disabled(viewModel.loading)
                 .padding(.top, 4)
+
+                // Согласие с правилами до входа — требование App Review (1.2)
+                EulaNotice(actionTitle: "Войти")
             }
             .padding(.horizontal, 32)
 

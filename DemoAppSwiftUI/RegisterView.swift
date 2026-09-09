@@ -132,6 +132,7 @@ import SwiftUI
 }
 
 struct RegisterView: View {
+    @State private var eulaAccepted = false
     @StateObject private var viewModel = RegisterViewModel()
     @Environment(\.presentationMode) private var presentationMode
 
@@ -173,6 +174,8 @@ struct RegisterView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
+                    EulaAcceptToggle(accepted: $eulaAccepted)
+
                     Button {
                         viewModel.register {
                             presentationMode.wrappedValue.dismiss()
@@ -184,7 +187,8 @@ struct RegisterView: View {
                             .padding(.vertical, 12)
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(viewModel.loading)
+                    // Без согласия с правилами регистрация недоступна (App Review 1.2)
+                    .disabled(viewModel.loading || !eulaAccepted)
                     .padding(.top, 8)
                 }
                 .padding(.horizontal, 32)

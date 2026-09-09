@@ -625,6 +625,7 @@ public extension MessageAction {
                 if let error {
                     onError(error)
                 } else {
+                    NotificationCenter.default.post(name: .woodchatBlockChanged, object: nil)
                     onFinish(
                         MessageActionInfo(
                             message: message,
@@ -703,6 +704,7 @@ public extension MessageAction {
                 if let error {
                     onError(error)
                 } else {
+                    NotificationCenter.default.post(name: .woodchatBlockChanged, object: nil)
                     onFinish(
                         MessageActionInfo(
                             message: message,
