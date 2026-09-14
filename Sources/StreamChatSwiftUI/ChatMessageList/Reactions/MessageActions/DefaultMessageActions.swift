@@ -199,7 +199,10 @@ public extension MessageAction {
                 }
             }
             
-            if InjectedValues[\.utils].messageListConfig.userBlockingEnabled {
+            // Посты канала анонсов подписаны самим каналом, а не человеком —
+            // блокировать канал нельзя, пункт «Заблокировать» там не показываем
+            let isChannelAuthor = message.author.id.hasPrefix("channel-")
+            if InjectedValues[\.utils].messageListConfig.userBlockingEnabled, !isChannelAuthor {
                 let userController = chatClient.currentUserController()
                 let blockedUserIds = userController.dataStore.currentUser()?.blockedUserIds ?? []
                 if blockedUserIds.contains(message.author.id) {

@@ -38,7 +38,7 @@ struct BlockedUsersView: View {
         .onAppear {
             viewModel.loadBlockedUsers()
         }
-        .navigationTitle("Blocked Users")
+        .navigationTitle("Заблокированные")
     }
     
     func delete(at offsets: IndexSet) {

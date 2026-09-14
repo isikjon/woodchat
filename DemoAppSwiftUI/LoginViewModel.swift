@@ -88,7 +88,9 @@ import SwiftUI
                 connectUser(withCredentials: credentials)
             } catch {
                 loading = false
-                errorMessage = "Не удалось подключиться к серверу. Проверьте интернет."
+                errorMessage = (error as? URLError)?.code == .timedOut
+                    ? "Сервер не отвечает. Проверьте интернет и попробуйте ещё раз."
+                    : "Не удалось подключиться к серверу. Проверьте интернет."
                 log.error("Ошибка входа: \(error)")
             }
         }
@@ -112,6 +114,10 @@ import SwiftUI
         connectUser(withCredentials: user)
     }
 
+    /// Сколько ждём установления соединения SDK, прежде чем показать ошибку.
+    private static let connectTimeout: TimeInterval = 20
+    private var connectTimeoutTask: Task<Void, Never>?
+
     private func connectUser(withCredentials credentials: UserCredentials) {
         guard let token = try? Token(rawValue: credentials.token) else {
             loading = false
@@ -119,6 +125,17 @@ import SwiftUI
             return
         }
         loading = true
+
+        // Страховка от вечной крутилки: если соединение не поднялось за отведённое
+        // время, отпускаем кнопку и просим повторить
+        connectTimeoutTask?.cancel()
+        connectTimeoutTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.connectTimeout * 1_000_000_000))
+            guard !Task.isCancelled, let self, self.loading else { return }
+            self.loading = false
+            self.errorMessage = "Сервер не отвечает. Проверьте интернет и попробуйте ещё раз."
+            self.chatClient.disconnect {}
+        }
 
         chatClient.connectUser(
             userInfo: .init(
@@ -129,14 +146,18 @@ import SwiftUI
             ),
             token: token
         ) { [weak self] error in
+            guard let self else { return }
+            // Таймаут уже сработал и показал ошибку — поздний ответ игнорируем
+            guard self.loading else { return }
+            self.connectTimeoutTask?.cancel()
             if let error {
                 log.error("connecting the user failed \(error)")
-                self?.loading = false
-                self?.errorMessage = "Не удалось подключиться к серверу. Попробуйте ещё раз."
+                self.loading = false
+                self.errorMessage = "Не удалось подключиться к серверу. Попробуйте ещё раз."
                 return
             }
             withAnimation {
-                self?.loading = false
+                self.loading = false
                 SecureUserRepository.shared.save(user: credentials)
                 AppState.shared.userState = .loggedIn
             }

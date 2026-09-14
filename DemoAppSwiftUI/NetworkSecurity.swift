@@ -155,6 +155,10 @@ enum WoodChatNetwork {
     static let pinnedSession: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.tlsMinimumSupportedProtocolVersion = .TLSv12
+        // Не ждать минуту молча: на плохой сети вход должен быстро показать ошибку
+        configuration.timeoutIntervalForRequest = 20
+        configuration.timeoutIntervalForResource = 60
+        configuration.waitsForConnectivity = false
         return URLSession(
             configuration: configuration,
             delegate: WoodChatPinningDelegate(),
