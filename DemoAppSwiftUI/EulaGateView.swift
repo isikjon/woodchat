@@ -49,7 +49,7 @@ struct EulaGateView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Group {
                         eulaHeading("Правила общения в WoodChat")
-                        Text("WoodChat — внутренний мессенджер Woodstream. Пользуясь приложением, вы принимаете это соглашение и обязуетесь соблюдать правила общения.")
+                        Text("Пользуясь приложением WoodChat, вы принимаете это соглашение и обязуетесь соблюдать правила общения.")
                         eulaHeading("Нулевая терпимость к недопустимому контенту")
                         Text("Мы придерживаемся политики НУЛЕВОЙ ТЕРПИМОСТИ к оскорбительному контенту и недопустимому поведению. Строго запрещены: травля, оскорбления, разжигание ненависти и дискриминация; материалы сексуального, жестокого или противоправного характера; спам, мошенничество и обман; выдача себя за другого человека; публикация чужих персональных данных.")
                         eulaHeading("Жалобы и блокировка")
@@ -60,7 +60,7 @@ struct EulaGateView: View {
                     Divider().padding(.vertical, 4)
                     Group {
                         eulaHeading("Zero tolerance policy")
-                        Text("WoodChat is Woodstream's internal messenger with user-generated content. By using the app you accept these terms. We have ZERO TOLERANCE for objectionable content and abusive users: harassment, hate speech, sexual or violent material, spam, scams and impersonation are prohibited.")
+                        Text("WoodChat lets users exchange messages and media. By using the app you accept these terms. We have ZERO TOLERANCE for objectionable content and abusive users: harassment, hate speech, sexual or violent material, spam, scams and impersonation are prohibited.")
                         eulaHeading("Reporting, blocking and moderation")
                         Text("Any user can report a message (long press → «Пожаловаться» / Report) and block another user (long press → «Заблокировать» / Block); blocked users' content is hidden immediately. Every report is reviewed within 24 hours; violating content is removed and the offending user is restricted or permanently banned.")
                     }
