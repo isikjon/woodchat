@@ -101,6 +101,10 @@ struct DemoAppSwiftUIApp: App {
             }
         }
         .onChange(of: appState.userState) { newValue in
+            // После выхода соглашение показывается заново — оно относится к входу
+            if newValue == .notLoggedIn {
+                eulaAccepted = EulaConsent.isAccepted
+            }
             if newValue == .loggedIn {
                 // Запрашиваем разрешение и регистрируем устройство в APNs.
                 // Токен уходит на шлюз через addDevice в AppDelegate.

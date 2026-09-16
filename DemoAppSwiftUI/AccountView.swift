@@ -296,6 +296,8 @@ struct AccountView: View {
 
     private func logout() {
         SecureUserRepository.shared.removeCurrentUser()
+        // Следующий вход снова начинается с соглашения
+        EulaConsent.reset()
         chatClient.logout {
             Task { @MainActor in
                 AppState.shared.userState = .notLoggedIn
