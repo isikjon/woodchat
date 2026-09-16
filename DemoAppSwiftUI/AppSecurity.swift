@@ -15,7 +15,8 @@ final class AppLockManager: ObservableObject {
 
     private static let enabledKey = "woodchat.biometricLock"
 
-    /// Включена ли блокировка (по умолчанию да).
+    /// Включена ли блокировка. По умолчанию выключена — заказчик попросил
+    /// не спрашивать код на входе; кому нужно, включает в профиле.
     @Published var isEnabled: Bool {
         didSet { UserDefaults.standard.set(isEnabled, forKey: Self.enabledKey) }
     }
@@ -26,11 +27,7 @@ final class AppLockManager: ObservableObject {
     private var authenticating = false
 
     private init() {
-        if UserDefaults.standard.object(forKey: Self.enabledKey) == nil {
-            isEnabled = true
-        } else {
-            isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
-        }
+        isEnabled = UserDefaults.standard.bool(forKey: Self.enabledKey)
     }
 
     /// Доступна ли на устройстве биометрия или код-пароль.
