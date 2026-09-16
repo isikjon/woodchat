@@ -76,9 +76,6 @@ struct LoginView: View {
         .overlay(
             viewModel.loading ? ProgressView() : nil
         )
-        .sheet(isPresented: $viewModel.showsConfiguration) {
-            AppConfigurationView()
-        }
         .sheet(isPresented: $showsRegistration) {
             RegisterView()
         }
@@ -94,50 +91,6 @@ struct LoginView: View {
                 viewModel.login()
             }
             #endif
-        }
-    }
-}
-
-struct DemoUserView: View {
-    @Injected(\.fonts) var fonts
-    @Injected(\.colors) var colors
-
-    var user: UserCredentials
-
-    private let imageSize: CGFloat = 44
-
-    var body: some View {
-        HStack {
-            if user.isGuest {
-                Image(systemName: "person.fill")
-                    .resizable()
-                    .foregroundColor(Color(colors.accentPrimary))
-                    .frame(width: imageSize, height: imageSize)
-                    .aspectRatio(contentMode: .fit)
-                    .background(Color(colors.background6))
-                    .clipShape(Circle())
-            } else {
-                UserAvatar(
-                    url: user.avatarURL,
-                    initials: "",
-                    size: imageSize,
-                    indicator: .none
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(user.name)
-                    .font(fonts.bodyBold)
-                Text(user.isGuest ? "Login as Guest" : "Stream test account")
-                    .font(fonts.footnote)
-                    .foregroundColor(Color(colors.textLowEmphasis))
-            }
-
-            Spacer()
-
-            Image(systemName: "arrow.forward")
-                .renderingMode(.template)
-                .foregroundColor(Color(colors.accentPrimary))
         }
     }
 }

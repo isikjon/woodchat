@@ -29,6 +29,8 @@ struct DemoAppSwiftUIApp: App {
         .messages
     }
 
+    @State private var eulaAccepted = EulaConsent.isAccepted
+
     var body: some Scene {
         WindowGroup {
             ZStack {
@@ -36,7 +38,12 @@ struct DemoAppSwiftUIApp: App {
                 case .launchAnimation:
                     StreamLogoLaunch()
                 case .notLoggedIn:
-                    LoginView()
+                    // Соглашение показывается раньше входа и регистрации (App Review 1.2)
+                    if eulaAccepted {
+                        LoginView()
+                    } else {
+                        EulaGateView { eulaAccepted = true }
+                    }
                 case .loggedIn:
                     TabView {
                         channelListView()

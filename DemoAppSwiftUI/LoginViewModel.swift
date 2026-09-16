@@ -7,9 +7,7 @@ import StreamChatSwiftUI
 import SwiftUI
 
 @MainActor class LoginViewModel: ObservableObject {
-    @Published var demoUsers = UserCredentials.builtInUsers
     @Published var loading = false
-    @Published var showsConfiguration = false
     @Published var email = ""
     @Published var password = ""
     @Published var errorMessage: String?
@@ -67,6 +65,11 @@ import SwiftUI
 
                 guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                     loading = false
+                    if (response as? HTTPURLResponse)?.statusCode == 403 {
+                        // Аккаунт забанен модерацией — это не ошибка пароля
+                        errorMessage = "Аккаунт заблокирован за нарушение правил. Напишите на info@woodstream.online."
+                        return
+                    }
                     registerFailedAttempt()
                     errorMessage = "Неверный email или пароль"
                     return
@@ -103,15 +106,6 @@ import SwiftUI
             lockedUntil = Date().addingTimeInterval(30)
             failedAttempts = 0
         }
-    }
-
-    func demoUserTapped(_ user: UserCredentials) {
-        if user.isGuest {
-            connectGuestUser(withCredentials: user)
-            return
-        }
-
-        connectUser(withCredentials: user)
     }
 
     /// Сколько ждём установления соединения SDK, прежде чем показать ошибку.
@@ -159,25 +153,6 @@ import SwiftUI
             withAnimation {
                 self.loading = false
                 SecureUserRepository.shared.save(user: credentials)
-                AppState.shared.userState = .loggedIn
-            }
-        }
-    }
-
-    private func connectGuestUser(withCredentials credentials: UserCredentials) {
-        loading = true
-
-        chatClient.connectGuestUser(
-            userInfo: .init(id: credentials.id, name: credentials.name)
-        ) { [weak self] error in
-            if let error {
-                log.error("connecting the user failed \(error)")
-                self?.loading = false
-                self?.errorMessage = "Не удалось подключиться к серверу. Попробуйте ещё раз."
-                return
-            }
-            withAnimation {
-                self?.loading = false
                 AppState.shared.userState = .loggedIn
             }
         }
